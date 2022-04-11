@@ -7,7 +7,10 @@ import (
 )
 
 func Specification() sdk.Specification {
-	return sdk.Specification{
+
+	var sdkSpecification sdk.Specification
+
+	sdkSpecification = sdk.Specification{
 		Name:    "zendesk",
 		Summary: "An zendesk source and destination plugin for Conduit, written in Go",
 		Version: "v0.1.0",
@@ -23,18 +26,7 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "Login to zendesk performed using username",
 			},
-			config.ConfigKeyPassword: {
-				Default:     "",
-				Required:    true,
-				Description: "Password is a string to verify the user for login",
-			},
-			config.ConfigKeyToken: {
-				Default:     "",
-				Required:    true,
-				Description: "Token is used to OAuth authentication with zendesk client",
-			},
 		},
-
 		SourceParams: map[string]sdk.Parameter{
 			config.ConfigKeyDomain: {
 				Default:     "",
@@ -46,16 +38,68 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "Login to zendesk performed using username",
 			},
+		},
+	}
+
+	if config.ConfigKeyPassword != "" {
+		sdkSpecification.DestinationParams = map[string]sdk.Parameter{
 			config.ConfigKeyPassword: {
 				Default:     "",
 				Required:    true,
 				Description: "Password is a string to verify the user for login",
 			},
+		}
+	}
+
+	if config.ConfigKeyToken != "" {
+		sdkSpecification.DestinationParams = map[string]sdk.Parameter{
 			config.ConfigKeyToken: {
 				Default:     "",
 				Required:    true,
 				Description: "Token is used to OAuth authentication with zendesk client",
 			},
-		},
+		}
 	}
+
+	if config.ConfigOAuthToken != "" {
+		sdkSpecification.DestinationParams = map[string]sdk.Parameter{
+			config.ConfigOAuthToken: {
+				Default:     "",
+				Required:    true,
+				Description: "OAuth token is used to OAuth authentication with zendesk client",
+			},
+		}
+	}
+
+	if config.ConfigKeyPassword != "" {
+		sdkSpecification.SourceParams = map[string]sdk.Parameter{
+			config.ConfigKeyPassword: {
+				Default:     "",
+				Required:    true,
+				Description: "Password is a string to verify the user for login",
+			},
+		}
+	}
+
+	if config.ConfigKeyToken != "" {
+		sdkSpecification.SourceParams = map[string]sdk.Parameter{
+			config.ConfigKeyToken: {
+				Default:     "",
+				Required:    true,
+				Description: "Token is used to OAuth authentication with zendesk client",
+			},
+		}
+	}
+
+	if config.ConfigOAuthToken != "" {
+		sdkSpecification.SourceParams = map[string]sdk.Parameter{
+			config.ConfigOAuthToken: {
+				Default:     "",
+				Required:    true,
+				Description: "OAuth token is used to OAuth authentication with zendesk client",
+			},
+		}
+
+	}
+	return sdkSpecification
 }

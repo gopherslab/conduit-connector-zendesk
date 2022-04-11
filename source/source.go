@@ -27,11 +27,11 @@ func NewSource() sdk.Source {
 }
 
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
-	configTwo, err := config.Parse(cfg)
+	zendeskConfig, err := config.Parse(cfg)
 	if err != nil {
 		return err
 	}
-	s.config = configTwo
+	s.config = zendeskConfig
 
 	return nil
 }
@@ -43,10 +43,13 @@ func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 	}
 	s.client = client
 	s.client.SetSubdomain(config.ConfigKeyDomain)
-	if config.ConfigKeyPassword == "" {
+
+	if config.ConfigKeyToken != "" {
 		s.client.SetCredential(zendesk.NewAPITokenCredential(config.ConfigKeyUserName, config.ConfigKeyToken))
-	} else if config.ConfigKeyToken == "" {
+	} else if config.ConfigKeyPassword != "" {
 		s.client.SetCredential(zendesk.NewBasicAuthCredential(config.ConfigKeyUserName, config.ConfigKeyPassword))
+	} else if config.ConfigOAuthToken != "" {
+		s.client.SetCredential(zendesk.NewAPITokenCredential(config.ConfigKeyUserName, config.ConfigOAuthToken))
 	} else {
 		return fmt.Errorf("Enter valid credentials:%w", err)
 	}
@@ -78,5 +81,3 @@ func (s *Source) Ack(ctx context.Context, position sdk.Position) error {
 	sdk.Logger(ctx).Debug().Str("position", string(position)).Msg("received ack")
 	return nil
 }
-
-//TODO encrypt token and password
