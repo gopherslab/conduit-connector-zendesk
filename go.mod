@@ -1,4 +1,4 @@
-module conduit-connector-zendesk
+module github.com/conduitio/conduit-connector-zendesk
 
 go 1.18
 

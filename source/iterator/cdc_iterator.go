@@ -2,75 +2,99 @@ package iterator
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
-	"strconv"
+	"io/ioutil"
+	"net/http"
+	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	zendesk "github.com/nukosuke/go-zendesk/zendesk"
+	"github.com/conduitio/conduit-connector-zendesk/config"
 )
 
+//StartTime - Initial entry for the zendesk cursor incremental exports
+var StartTime = time.Unix(0, 0)
+
 type CDCIterator struct {
-	client  *zendesk.Client
-	tickets []zendesk.Ticket
-	page    zendesk.Page
+	client      *http.Client
+	request     *http.Request
+	config      config.Config
+	afterCursor string
+	afterURL    string
+	endOfStream bool
 }
 
-//CursorOptions - Ticket audit
-//initial time for cursor options- time.Now()
+type response struct {
+	AfterCursor string `json:"after_cursor"`
+	AfterURL    string `json:"after_url"`
+}
 
-func NewCDCIterator(ctx context.Context, client *zendesk.Client, page int, perPage int) (*CDCIterator, error) {
-
-	var ticketListOptions *zendesk.TicketListOptions
-
-	ticketListOptions.PageOptions.Page = page
-	ticketListOptions.PageOptions.PerPage = perPage
-
-	ticket, resultPages, err := getAllTickets(ctx, ticketListOptions, client)
-
-	if err != nil {
-		return nil, err
-	}
+func NewCDCIterator(ctx context.Context, client *http.Client, config config.Config) (*CDCIterator, error) {
 
 	cdc := &CDCIterator{
-		client:  client,
-		tickets: ticket,
-		page:    resultPages,
+		client: client,
+		config: config,
 	}
 	return cdc, nil
 }
 
-func getAllTickets(ctx context.Context, ticketList *zendesk.TicketListOptions, client *zendesk.Client) ([]zendesk.Ticket, zendesk.Page, error) {
+func (c *CDCIterator) HasNext(ctx context.Context) bool {
 
-	ticketData, page, err := client.GetTickets(ctx, ticketList)
-	if err != nil {
-		log.Fatalln(err)
+	if !StartTime.IsZero() || c.afterURL != "" {
+		return true
 	}
-	return ticketData, page, err
+	return false
 }
 
-func (c *CDCIterator) HasNext() bool {
-	return c.page.HasNext()
+func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
+
+	var URL string
+	var res response
+	var result sdk.Record
+	URL = c.afterURL
+
+	if !StartTime.IsZero() {
+		URL = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, StartTime.Unix())
+		StartTime = time.Unix(0, 0)
+	}
+	req, err := http.NewRequest(http.MethodGet, URL, nil)
+
+	if err != nil {
+		return sdk.Record{}, fmt.Errorf("could not access the zendesk")
+	}
+
+	req.Header.Add("Authorization", "Basic "+basicAuth(c.config.UserName, c.config.Password))
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return sdk.Record{}, fmt.Errorf("could not get the zendesk response")
+	}
+	defer resp.Body.Close()
+
+	ticketList, err := ioutil.ReadAll(resp.Body)
+
+	//Writing record to sdk.Data
+	if err == nil {
+		result.Payload = sdk.RawData(ticketList)
+	}
+
+	json.Unmarshal(ticketList, &res)
+	if res.AfterURL != "" {
+		c.afterURL = res.AfterURL
+	}
+
+	return result, err
 }
 
-func (c *CDCIterator) Next(ctx context.Context) (*sdk.Record, error) {
-
-	data, err := json.Marshal(c.tickets)
-	if err != nil {
-		return &sdk.Record{}, fmt.Errorf("could not read the object body: %w", err)
-	}
-	result := &sdk.Record{
-		Metadata: map[string]string{
-			"Page":    *c.page.NextPage,
-			"PerPage": strconv.Itoa(int(c.page.Count)),
-		},
-		Payload: sdk.RawData(data),
-	}
-
-	return result, nil
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
 func (c *CDCIterator) Stop() {
-
+	//nothing to stop
+	if !c.endOfStream {
+		c.client = nil
+	}
 }

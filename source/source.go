@@ -1,19 +1,21 @@
 package source
 
 import (
-	"conduit-connector-zendesk/config"
 	"context"
 	"fmt"
+	"net/http"
+
+	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	zendesk "github.com/nukosuke/go-zendesk/zendesk"
 )
 
 type Source struct {
 	sdk.UnimplementedSource
 	config   config.Config
 	iterator Iterator
-	client   *zendesk.Client
+	client   *http.Client
 }
 
 type Iterator interface {
@@ -27,37 +29,30 @@ func NewSource() sdk.Source {
 }
 
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
+
 	zendeskConfig, err := config.Parse(cfg)
 	if err != nil {
 		return err
 	}
 	s.config = zendeskConfig
+	s.client = &http.Client{}
 
 	return nil
 }
 
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
-	client, err := zendesk.NewClient(nil)
+
+	var err error
+
+	s.iterator, err = iterator.NewCDCIterator(ctx, s.client, s.config)
 	if err != nil {
-		return fmt.Errorf("failed to connect zendesk client:%w", err)
+		return fmt.Errorf("err")
 	}
-	s.client = client
-	s.client.SetSubdomain(config.ConfigKeyDomain)
-
-	if config.ConfigKeyToken != "" {
-		s.client.SetCredential(zendesk.NewAPITokenCredential(config.ConfigKeyUserName, config.ConfigKeyToken))
-	} else if config.ConfigKeyPassword != "" {
-		s.client.SetCredential(zendesk.NewBasicAuthCredential(config.ConfigKeyUserName, config.ConfigKeyPassword))
-	} else if config.ConfigOAuthToken != "" {
-		s.client.SetCredential(zendesk.NewAPITokenCredential(config.ConfigKeyUserName, config.ConfigOAuthToken))
-	} else {
-		return fmt.Errorf("Enter valid credentials:%w", err)
-	}
-
 	return nil
 }
 
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
+
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
@@ -73,6 +68,7 @@ func (s *Source) Teardown(ctx context.Context) error {
 	if s.iterator != nil {
 		s.iterator.Stop()
 		s.iterator = nil
+		s.client = nil
 	}
 	return nil
 }

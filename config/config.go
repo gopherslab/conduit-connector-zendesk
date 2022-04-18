@@ -1,24 +1,20 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 )
 
 const (
-	ConfigKeyDomain   = "zendesk.domain"
-	ConfigKeyUserName = "zendesk.username"
-	ConfigKeyPassword = "zendesk.password"
-	ConfigKeyToken    = "zendesk.token"
-	ConfigOAuthToken  = "zendesk.oauthtoken"
+	ConfigKeyDomain   = "domain"
+	ConfigKeyUserName = "username"
+	ConfigKeyPassword = "password"
+	ConfigKey
 )
 
 type Config struct {
-	Domain     string
-	UserName   string
-	Password   string
-	Token      string
-	OAuthToken string
+	Domain   string
+	UserName string
+	Password string
 }
 
 func Parse(cfg map[string]string) (Config, error) {
@@ -33,30 +29,17 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, requiredConfigErr(ConfigKeyUserName)
 	}
 
+	userPassword, ok := cfg[ConfigKeyPassword]
+	if !ok {
+		return Config{}, requiredConfigErr(ConfigKeyPassword)
+	}
+
 	config := Config{
 		Domain:   userDomain,
 		UserName: userName,
+		Password: userPassword,
 	}
-
-	userPassword, ok := cfg[ConfigKeyPassword]
-	if ok {
-		config.Password = userPassword
-		return config, nil
-	}
-
-	userToken, ok := cfg[ConfigKeyToken]
-	if ok {
-		config.Token = userToken
-		return config, nil
-	}
-
-	userOAuthToken, ok := cfg[ConfigOAuthToken]
-	if ok {
-		config.OAuthToken = userOAuthToken
-		return config, nil
-	}
-
-	return Config{}, errors.New("enter valid credentials for zendesk")
+	return config, nil
 }
 
 func requiredConfigErr(name string) error {

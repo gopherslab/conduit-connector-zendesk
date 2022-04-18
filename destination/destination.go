@@ -1,7 +1,7 @@
 package desination
 
 import (
-	"conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/config"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
