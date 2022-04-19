@@ -11,7 +11,7 @@ func Specification() sdk.Specification {
 		Name:    "zendesk",
 		Summary: "An zendesk source and destination plugin for Conduit, written in Go",
 		Version: "v0.1.0",
-		Author:  "meroxa,Inc.",
+		Author:  "Meroxa,Inc.",
 		SourceParams: map[string]sdk.Parameter{
 			config.ConfigKeyDomain: {
 				Default:     "",

@@ -8,7 +8,6 @@ const (
 	ConfigKeyDomain   = "domain"
 	ConfigKeyUserName = "username"
 	ConfigKeyPassword = "password"
-	ConfigKey
 )
 
 type Config struct {

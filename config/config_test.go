@@ -1,17 +1,17 @@
 package config
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParse(t *testing.T) {
-
 	tests := []struct {
-		name   string
-		config map[string]string
-		want   Config
+		name    string
+		config  map[string]string
+		want    Config
+		isError bool
 	}{
 		{
 			name: "Login with api token authentication",
@@ -25,51 +25,51 @@ func TestParse(t *testing.T) {
 				UserName: "test@testlab.com",
 				Password: "gkdsaj)({jgo43646435#$!ga",
 			},
+			isError: false,
 		},
 		{
 			name: "Login with api token without domain",
 			config: map[string]string{
-				ConfigKeyDomain:   "",
 				ConfigKeyUserName: "test@testlab.com",
 				ConfigKeyPassword: "gkdsaj)({jgo43646435#$!ga",
 			},
-			want: Config{},
+			want:    Config{},
+			isError: true,
 		},
 		{
 			name: "Login with api token without domain and username",
 			config: map[string]string{
-				ConfigKeyDomain:   "",
-				ConfigKeyUserName: "",
 				ConfigKeyPassword: "gkdsaj)({jgo43646435#$!ga",
 			},
-			want: Config{},
+			want:    Config{},
+			isError: true,
 		},
 		{
 			name: "Login with api token without token",
 			config: map[string]string{
 				ConfigKeyDomain:   "testlab",
 				ConfigKeyUserName: "test@testlab.com",
-				ConfigKeyPassword: "",
 			},
-			want: Config{},
+			want:    Config{},
+			isError: true,
 		},
 		{
-			name: "Login with api token without domain, username and apitoken",
-			config: map[string]string{
-				ConfigKeyDomain:   "",
-				ConfigKeyUserName: "",
-				ConfigKeyPassword: "",
-			},
-			want: Config{},
+			name:    "Login with api token without domain, username and apitoken",
+			config:  map[string]string{},
+			want:    Config{},
+			isError: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := Parse(tt.config); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Parse = %v, want = %v", got, tt.want)
+			res, err := Parse(tt.config)
+			if tt.isError {
+				assert.NotNil(t, err)
+			} else {
+				assert.NotNil(t, res)
+				assert.Equal(t, res, tt.want)
 			}
-			got, _ := Parse(tt.config)
-			fmt.Println(tt.name, got)
 		})
 	}
 }

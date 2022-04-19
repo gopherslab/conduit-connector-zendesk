@@ -13,9 +13,6 @@ import (
 	"github.com/conduitio/conduit-connector-zendesk/config"
 )
 
-//StartTime - Initial entry for the zendesk cursor incremental exports
-var StartTime = time.Unix(0, 0)
-
 type CDCIterator struct {
 	client      *http.Client
 	request     *http.Request
@@ -23,47 +20,52 @@ type CDCIterator struct {
 	afterCursor string
 	afterURL    string
 	endOfStream bool
+	startTime   time.Time
 }
 
 type response struct {
 	AfterCursor string `json:"after_cursor"`
 	AfterURL    string `json:"after_url"`
+	EndOfStream bool   `json:"end_of_stream"`
 }
 
-func NewCDCIterator(ctx context.Context, client *http.Client, config config.Config) (*CDCIterator, error) {
+func NewCDCIterator(ctx context.Context, config config.Config, rp string) (*CDCIterator, error) {
 
 	cdc := &CDCIterator{
-		client: client,
-		config: config,
+		client:      &http.Client{},
+		config:      config,
+		endOfStream: false,
+		startTime:   time.Unix(0, 0),
+		afterURL:    rp,
 	}
 	return cdc, nil
 }
 
 func (c *CDCIterator) HasNext(ctx context.Context) bool {
-
-	if !StartTime.IsZero() || c.afterURL != "" {
+	if !c.endOfStream {
 		return true
 	}
 	return false
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
-
 	var URL string
 	var res response
 	var result sdk.Record
-	URL = c.afterURL
 
-	if !StartTime.IsZero() {
-		URL = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, StartTime.Unix())
-		StartTime = time.Unix(0, 0)
+	if !c.startTime.IsZero() {
+		URL = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, c.startTime.Unix())
 	}
+
+	if c.afterURL != "" {
+		URL = c.afterURL
+	}
+
 	req, err := http.NewRequest(http.MethodGet, URL, nil)
 
 	if err != nil {
 		return sdk.Record{}, fmt.Errorf("could not access the zendesk")
 	}
-
 	req.Header.Add("Authorization", "Basic "+basicAuth(c.config.UserName, c.config.Password))
 
 	resp, err := c.client.Do(req)
@@ -74,16 +76,17 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 
 	ticketList, err := ioutil.ReadAll(resp.Body)
 
-	//Writing record to sdk.Data
-	if err == nil {
-		result.Payload = sdk.RawData(ticketList)
-	}
-
 	json.Unmarshal(ticketList, &res)
 	if res.AfterURL != "" {
 		c.afterURL = res.AfterURL
+		c.endOfStream = res.EndOfStream
 	}
 
+	//Writing record to conduit
+	if err == nil {
+		result.Payload = sdk.RawData(ticketList)
+		result.Position = []byte(fmt.Sprintf("%s", c.afterURL))
+	}
 	return result, err
 }
 
@@ -94,7 +97,4 @@ func basicAuth(username, password string) string {
 
 func (c *CDCIterator) Stop() {
 	//nothing to stop
-	if !c.endOfStream {
-		c.client = nil
-	}
 }

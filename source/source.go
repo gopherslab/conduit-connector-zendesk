@@ -2,8 +2,6 @@ package source
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
@@ -15,7 +13,7 @@ type Source struct {
 	sdk.UnimplementedSource
 	config   config.Config
 	iterator Iterator
-	client   *http.Client
+	position sdk.Position
 }
 
 type Iterator interface {
@@ -35,7 +33,6 @@ func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 		return err
 	}
 	s.config = zendeskConfig
-	s.client = &http.Client{}
 
 	return nil
 }
@@ -44,9 +41,9 @@ func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 
 	var err error
 
-	s.iterator, err = iterator.NewCDCIterator(ctx, s.client, s.config)
+	s.iterator, err = iterator.NewCDCIterator(ctx, s.config, string(rp))
 	if err != nil {
-		return fmt.Errorf("err")
+		return err
 	}
 	return nil
 }
@@ -68,7 +65,6 @@ func (s *Source) Teardown(ctx context.Context) error {
 	if s.iterator != nil {
 		s.iterator.Stop()
 		s.iterator = nil
-		s.client = nil
 	}
 	return nil
 }
