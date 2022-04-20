@@ -17,16 +17,16 @@ type CDCIterator struct {
 	client      *http.Client
 	request     *http.Request
 	config      config.Config
-	afterCursor string
 	afterURL    string
 	endOfStream bool
 	startTime   time.Time
 }
 
 type response struct {
-	AfterCursor string `json:"after_cursor"`
-	AfterURL    string `json:"after_url"`
-	EndOfStream bool   `json:"end_of_stream"`
+	AfterCursor string        `json:"after_cursor"`
+	AfterURL    string        `json:"after_url"`
+	EndOfStream bool          `json:"end_of_stream"`
+	TicketList  []interface{} `json:"tickets"`
 }
 
 func NewCDCIterator(ctx context.Context, config config.Config, rp string) (*CDCIterator, error) {
@@ -49,19 +49,19 @@ func (c *CDCIterator) HasNext(ctx context.Context) bool {
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
-	var URL string
 	var res response
 	var result sdk.Record
+	var url string
 
 	if !c.startTime.IsZero() {
-		URL = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, c.startTime.Unix())
+		url = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, c.startTime.Unix())
 	}
 
 	if c.afterURL != "" {
-		URL = c.afterURL
+		url = c.afterURL
 	}
 
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 
 	if err != nil {
 		return sdk.Record{}, fmt.Errorf("could not access the zendesk")
@@ -74,20 +74,41 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return sdk.Record{}, sdk.ErrBackoffRetry
+	}
+
 	ticketList, err := ioutil.ReadAll(resp.Body)
-
-	json.Unmarshal(ticketList, &res)
-	if res.AfterURL != "" {
-		c.afterURL = res.AfterURL
-		c.endOfStream = res.EndOfStream
+	if err != nil {
+		return sdk.Record{}, err
 	}
 
-	//Writing record to conduit
-	if err == nil {
-		result.Payload = sdk.RawData(ticketList)
-		result.Position = []byte(fmt.Sprintf("%s", c.afterURL))
+	err = json.Unmarshal(ticketList, &res)
+	if err != nil {
+		return sdk.Record{}, err
 	}
-	return result, err
+
+	if res.AfterURL == "" {
+		return sdk.Record{}, sdk.ErrBackoffRetry
+	}
+
+	c.endOfStream = res.EndOfStream
+
+	if len(res.TicketList) == 0 {
+		return sdk.Record{}, sdk.ErrBackoffRetry
+	}
+
+	c.afterURL = res.AfterURL
+	payload, err := json.Marshal(res.TicketList)
+
+	if err != nil {
+		return sdk.Record{}, err
+	}
+
+	result.Payload = sdk.RawData(payload)
+	result.Position = []byte((c.afterURL))
+	return result, nil
+
 }
 
 func basicAuth(username, password string) string {

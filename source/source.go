@@ -40,7 +40,6 @@ func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 
 	var err error
-
 	s.iterator, err = iterator.NewCDCIterator(ctx, s.config, string(rp))
 	if err != nil {
 		return err
@@ -57,6 +56,10 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if err != nil {
 		return sdk.Record{}, err
 	}
+
+	if r.Payload == nil {
+		return sdk.Record{}, sdk.ErrBackoffRetry
+	}
 	return r, nil
 }
 
@@ -70,6 +73,5 @@ func (s *Source) Teardown(ctx context.Context) error {
 }
 
 func (s *Source) Ack(ctx context.Context, position sdk.Position) error {
-	sdk.Logger(ctx).Debug().Str("position", string(position)).Msg("received ack")
 	return nil
 }
