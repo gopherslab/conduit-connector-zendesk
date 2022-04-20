@@ -11,15 +11,15 @@ import (
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/source/position"
 )
 
 type CDCIterator struct {
-	client      *http.Client
-	request     *http.Request
-	config      config.Config
-	afterURL    string
-	endOfStream bool
-	startTime   time.Time
+	client         *http.Client
+	config         config.Config
+	ticketPosition position.TicketPosition
+	endOfStream    bool
+	startTime      time.Time
 }
 
 type response struct {
@@ -29,36 +29,32 @@ type response struct {
 	TicketList  []interface{} `json:"tickets"`
 }
 
-func NewCDCIterator(ctx context.Context, config config.Config, rp string) (*CDCIterator, error) {
+func NewCDCIterator(ctx context.Context, config config.Config, tp position.TicketPosition) (*CDCIterator, error) {
 
 	cdc := &CDCIterator{
-		client:      &http.Client{},
-		config:      config,
-		endOfStream: false,
-		startTime:   time.Unix(0, 0),
-		afterURL:    rp,
+		client:         &http.Client{},
+		config:         config,
+		endOfStream:    false,
+		startTime:      time.Unix(0, 0),
+		ticketPosition: tp,
 	}
 	return cdc, nil
 }
 
 func (c *CDCIterator) HasNext(ctx context.Context) bool {
-	if !c.endOfStream {
-		return true
-	}
-	return false
+	return !c.endOfStream || time.Now().Unix() > c.ticketPosition.NextIterator
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	var res response
-	var result sdk.Record
 	var url string
 
 	if !c.startTime.IsZero() {
 		url = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, c.startTime.Unix())
 	}
 
-	if c.afterURL != "" {
-		url = c.afterURL
+	if c.ticketPosition.AfterURL != "" {
+		url = c.ticketPosition.AfterURL
 	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -88,26 +84,28 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 		return sdk.Record{}, err
 	}
 
-	if res.AfterURL == "" {
-		return sdk.Record{}, sdk.ErrBackoffRetry
-	}
-
 	c.endOfStream = res.EndOfStream
 
 	if len(res.TicketList) == 0 {
+		c.ticketPosition.NextIterator = time.Now().Add(2 * time.Minute).Unix()
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
 
-	c.afterURL = res.AfterURL
+	c.ticketPosition.AfterURL = res.AfterURL
 	payload, err := json.Marshal(res.TicketList)
 
 	if err != nil {
 		return sdk.Record{}, err
 	}
+	ticketIndex := position.TicketPosition{
+		AfterURL:     c.ticketPosition.AfterURL,
+		NextIterator: time.Now().Unix(),
+	}
 
-	result.Payload = sdk.RawData(payload)
-	result.Position = []byte((c.afterURL))
-	return result, nil
+	return sdk.Record{
+		Position: ticketIndex.ToRecordPosition(),
+		Payload:  sdk.RawData(payload),
+	}, err
 
 }
 

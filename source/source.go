@@ -5,6 +5,7 @@ import (
 
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
+	"github.com/conduitio/conduit-connector-zendesk/source/position"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -38,9 +39,12 @@ func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 }
 
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
+	ticketPos, err := position.ParsePosition(rp)
+	if err != nil {
+		return err
+	}
 
-	var err error
-	s.iterator, err = iterator.NewCDCIterator(ctx, s.config, string(rp))
+	s.iterator, err = iterator.NewCDCIterator(ctx, s.config, ticketPos)
 	if err != nil {
 		return err
 	}
@@ -52,6 +56,7 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
+
 	r, err := s.iterator.Next(ctx)
 	if err != nil {
 		return sdk.Record{}, err
