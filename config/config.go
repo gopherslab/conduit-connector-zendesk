@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -9,16 +10,14 @@ const (
 	ConfigKeyUserName      = "username"
 	ConfigKeyPassword      = "password"
 	ConfigKeyFetchInterval = "fetchinterval"
-	DefaultFetchInterval   = "2"
-	DefaultPerPage         = "10"
+	DefaultFetchInterval   = int64(2)
 )
 
 type Config struct {
 	Domain        string
 	UserName      string
 	Password      string
-	FetchInterval string
-	PerPage       string
+	FetchInterval int64
 }
 
 func Parse(cfg map[string]string) (Config, error) {
@@ -38,16 +37,16 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, requiredConfigErr(ConfigKeyPassword)
 	}
 
-	config := Config{
-		Domain:   userDomain,
-		UserName: userName,
-		Password: userPassword,
+	fetchInterval, ok := cfg[ConfigKeyFetchInterval]
+	if !ok {
+		return Config{}, requiredConfigErr(ConfigKeyPassword)
 	}
 
-	if cfg[ConfigKeyFetchInterval] != "" {
-		config.FetchInterval = cfg[ConfigKeyFetchInterval]
-	} else {
-		config.FetchInterval = DefaultFetchInterval
+	config := Config{
+		Domain:        userDomain,
+		UserName:      userName,
+		Password:      userPassword,
+		FetchInterval: stringToInt64(fetchInterval),
 	}
 
 	return config, nil
@@ -55,4 +54,12 @@ func Parse(cfg map[string]string) (Config, error) {
 
 func requiredConfigErr(name string) error {
 	return fmt.Errorf("%q config value must be set", name)
+}
+
+func stringToInt64(interval string) int64 {
+	nextInterval, err := strconv.ParseInt(interval, 10, 64)
+	if err != nil {
+		return DefaultFetchInterval
+	}
+	return nextInterval
 }
