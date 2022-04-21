@@ -5,15 +5,20 @@ import (
 )
 
 const (
-	ConfigKeyDomain   = "domain"
-	ConfigKeyUserName = "username"
-	ConfigKeyPassword = "password"
+	ConfigKeyDomain        = "domain"
+	ConfigKeyUserName      = "username"
+	ConfigKeyPassword      = "password"
+	ConfigKeyFetchInterval = "fetchinterval"
+	DefaultFetchInterval   = "2"
+	DefaultPerPage         = "10"
 )
 
 type Config struct {
-	Domain   string
-	UserName string
-	Password string
+	Domain        string
+	UserName      string
+	Password      string
+	FetchInterval string
+	PerPage       string
 }
 
 func Parse(cfg map[string]string) (Config, error) {
@@ -38,6 +43,13 @@ func Parse(cfg map[string]string) (Config, error) {
 		UserName: userName,
 		Password: userPassword,
 	}
+
+	if cfg[ConfigKeyFetchInterval] != "" {
+		config.FetchInterval = cfg[ConfigKeyFetchInterval]
+	} else {
+		config.FetchInterval = DefaultFetchInterval
+	}
+
 	return config, nil
 }
 

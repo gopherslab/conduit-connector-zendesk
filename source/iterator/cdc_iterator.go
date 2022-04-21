@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -87,7 +88,11 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	c.endOfStream = res.EndOfStream
 
 	if len(res.TicketList) == 0 {
-		c.ticketPosition.NextIterator = time.Now().Add(2 * time.Minute).Unix()
+		fInterval, err := strconv.ParseInt(c.config.FetchInterval, 10, 64)
+		if err != nil {
+			return sdk.Record{}, err
+		}
+		c.ticketPosition.NextIterator = time.Now().Add(time.Duration(fInterval) * time.Minute).Unix()
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
 

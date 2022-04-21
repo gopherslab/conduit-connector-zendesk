@@ -39,6 +39,7 @@ func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 }
 
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
+
 	ticketPos, err := position.ParsePosition(rp)
 	if err != nil {
 		return err
@@ -56,8 +57,8 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
-
 	r, err := s.iterator.Next(ctx)
+
 	if err != nil {
 		return sdk.Record{}, err
 	}
@@ -69,6 +70,7 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 }
 
 func (s *Source) Teardown(ctx context.Context) error {
+
 	sdk.Logger(ctx).Info().Msg("Shutting down Zendesk Client")
 	if s.iterator != nil {
 		s.iterator.Stop()

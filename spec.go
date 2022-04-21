@@ -28,6 +28,11 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "password to login",
 			},
+			config.ConfigKeyFetchInterval: {
+				Default:     "",
+				Required:    false,
+				Description: "Fetch interval for consecutive iterations",
+			},
 		},
 		DestinationParams: map[string]sdk.Parameter{},
 	}
