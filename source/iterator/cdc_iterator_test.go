@@ -25,7 +25,7 @@ func TestNewCDCIterator(t *testing.T) {
 			config: config.Config{
 				Domain:   "testlab",
 				UserName: "test@testlab.com",
-				Password: "gkdsaj)({jgo43646435#$!ga",
+				APIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			tp: position.TicketPosition{
 				AfterURL:     "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDM3NzAzNS4wfHwyNnw%3D",
@@ -36,7 +36,7 @@ func TestNewCDCIterator(t *testing.T) {
 				config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",
-					Password: "gkdsaj)({jgo43646435#$!ga",
+					APIToken: "gkdsaj)({jgo43646435#$!ga",
 				},
 				endOfStream: false,
 				startTime:   time.Unix(0, 0),

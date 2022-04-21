@@ -23,12 +23,12 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "Login to zendesk performed using username",
 			},
-			config.ConfigKeyPassword: {
+			config.ConfigKeyAPIToken: {
 				Default:     "",
 				Required:    true,
 				Description: "password to login",
 			},
-			config.ConfigKeyFetchInterval: {
+			config.ConfigKeyIterationInterval: {
 				Default:     "",
 				Required:    false,
 				Description: "Fetch interval for consecutive iterations",

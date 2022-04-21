@@ -13,19 +13,26 @@ type TicketPosition struct {
 }
 
 func (pos TicketPosition) ToRecordPosition() sdk.Position {
-	res, _ := json.Marshal(pos)
+	res, err := json.Marshal(pos)
+	if err != nil {
+		return sdk.Position{}
+	}
+
 	return res
 }
 
 func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	var err error
+
 	if p == nil {
 		return TicketPosition{}, err
 	}
+
 	var tp TicketPosition
 	err = json.Unmarshal(p, &tp)
 	if err != nil {
 		return TicketPosition{}, fmt.Errorf("Couldn't parse the position timestamp")
 	}
+
 	return tp, err
 }

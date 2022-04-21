@@ -20,6 +20,7 @@ type CDCIterator struct {
 	ticketPosition position.TicketPosition
 	endOfStream    bool
 	startTime      time.Time
+	RetryAfter     time.Duration
 }
 
 type response struct {
@@ -38,11 +39,13 @@ func NewCDCIterator(ctx context.Context, config config.Config, tp position.Ticke
 		startTime:      time.Unix(0, 0),
 		ticketPosition: tp,
 	}
+
 	return cdc, nil
 }
 
 func (c *CDCIterator) HasNext(ctx context.Context) bool {
-	return !c.endOfStream || time.Now().Unix() > c.ticketPosition.NextIterator
+
+	return time.Now().Unix() > c.ticketPosition.NextIterator
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
@@ -58,11 +61,11 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-
 	if err != nil {
 		return sdk.Record{}, fmt.Errorf("could not access the zendesk")
 	}
-	req.Header.Add("Authorization", "Basic "+basicAuth(c.config.UserName, c.config.Password))
+
+	req.Header.Add("Authorization", "Basic "+basicAuth(c.config.UserName, c.config.APIToken))
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -70,8 +73,19 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusTooManyRequests {
+		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
+		c.RetryAfter = 93 * time.Second
+		c.ticketPosition.NextIterator = time.Now().Add(c.RetryAfter).Unix()
+		return sdk.Record{
+			Position: c.ticketPosition.ToRecordPosition(),
+		}, sdk.ErrBackoffRetry
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return sdk.Record{}, sdk.ErrBackoffRetry
+		return sdk.Record{
+			Position: c.ticketPosition.ToRecordPosition(),
+		}, sdk.ErrBackoffRetry
 	}
 
 	ticketList, err := ioutil.ReadAll(resp.Body)
@@ -87,8 +101,10 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	c.endOfStream = res.EndOfStream
 
 	if len(res.TicketList) == 0 {
-		c.ticketPosition.NextIterator = time.Now().Add(time.Duration(c.config.FetchInterval) * time.Minute).Unix()
-		return sdk.Record{}, sdk.ErrBackoffRetry
+		c.ticketPosition.NextIterator = time.Now().Add(c.config.IterationInterval).Unix()
+		return sdk.Record{
+			Position: c.ticketPosition.ToRecordPosition(),
+		}, sdk.ErrBackoffRetry
 	}
 
 	c.ticketPosition.AfterURL = res.AfterURL
@@ -109,11 +125,11 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 
 }
 
-func basicAuth(username, password string) string {
-	auth := username + ":" + password
+func basicAuth(username, apiToken string) string {
+	auth := username + "/token:" + apiToken
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
 func (c *CDCIterator) Stop() {
-	//nothing to stop
+	c.startTime = time.Unix(0, 0)
 }

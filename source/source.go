@@ -57,15 +57,12 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
-	r, err := s.iterator.Next(ctx)
 
+	r, err := s.iterator.Next(ctx)
 	if err != nil {
 		return sdk.Record{}, err
 	}
 
-	if r.Payload == nil {
-		return sdk.Record{}, sdk.ErrBackoffRetry
-	}
 	return r, nil
 }
 
