@@ -33,7 +33,7 @@ Common JSON attribute added to the response
     "end_of_stream": true
 }
 ```
-#### Initial Cursor Request 
+### Initial Cursor Request 
 
 - https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=1532034771 
 
@@ -49,5 +49,12 @@ Common JSON attribute added to the response
 |`domain`       | domain is the registered by organization to zendesk                          | true     |         |
 |`username`     | username is the registered for login                                         | true     |         |
 |`apitoken`     | password associated with the username for login                              | true     |         |
-|`fetchinterval`| fetchinterval is the frequency of conduit hitting zendesk API- Default is 2m | false    |     2   |
+|`fetchinterval`| fetchinterval is the frequency of conduit hitting zendesk API- Default is 2m | false    |  "2m"   |
 
+##### NOTE: `fetchinterval` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
+
+# References
+
+- https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-apibest-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
+- https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/#cursor-based-pagination-json-format
+- https://developer.zendesk.com/documentation/ticketing/managing-tickets/using-the-incremental-export-api/#cursor-based-incremental-exports
