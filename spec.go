@@ -29,7 +29,7 @@ func Specification() sdk.Specification {
 				Description: "password to login",
 			},
 			config.ConfigKeyIterationInterval: {
-				Default:     "",
+				Default:     "2m",
 				Required:    false,
 				Description: "Fetch interval for consecutive iterations",
 			},
