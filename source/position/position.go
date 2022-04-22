@@ -3,13 +3,14 @@ package position
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 type TicketPosition struct {
 	AfterURL     string
-	NextIterator int64
+	NextIterator time.Time
 }
 
 func (pos TicketPosition) ToRecordPosition() sdk.Position {

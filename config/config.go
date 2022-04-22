@@ -22,9 +22,6 @@ type Config struct {
 
 func Parse(cfg map[string]string) (Config, error) {
 
-	var interval time.Duration
-	var err error
-
 	userDomain, ok := cfg[ConfigKeyDomain]
 	if !ok {
 		return Config{}, requiredConfigErr(ConfigKeyDomain)
@@ -40,16 +37,13 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, requiredConfigErr(ConfigKeyAPIToken)
 	}
 
-	if cfg[ConfigKeyIterationInterval] != "" {
-		interval, err = time.ParseDuration(cfg[ConfigKeyIterationInterval])
-		if err != nil {
-			interval, err = time.ParseDuration(DefaulIterationInterval)
-		}
-	} else {
-		interval, err = time.ParseDuration(DefaulIterationInterval)
+	itertionTime := cfg[ConfigKeyIterationInterval]
+	if itertionTime == "" {
+		itertionTime = DefaulIterationInterval
 	}
+	interval, err := time.ParseDuration(itertionTime)
 	if err != nil {
-		return Config{}, err
+		return Config{}, fmt.Errorf("%q can't parse time interval", itertionTime)
 	}
 
 	config := Config{

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -44,8 +45,7 @@ func NewCDCIterator(ctx context.Context, config config.Config, tp position.Ticke
 }
 
 func (c *CDCIterator) HasNext(ctx context.Context) bool {
-
-	return time.Now().Unix() > c.ticketPosition.NextIterator
+	return time.Now().After(c.ticketPosition.NextIterator)
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
@@ -75,8 +75,15 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
-		c.RetryAfter = 93 * time.Second
-		c.ticketPosition.NextIterator = time.Now().Add(c.RetryAfter).Unix()
+		retryValue, err := strconv.Atoi(resp.Header.Get("Retry_After"))
+		if err != nil {
+			return sdk.Record{
+				Position: c.ticketPosition.ToRecordPosition(),
+			}, fmt.Errorf("unable to get retry value")
+		}
+
+		c.RetryAfter = time.Duration(retryValue)
+		c.ticketPosition.NextIterator = time.Now().Add(c.RetryAfter)
 		return sdk.Record{
 			Position: c.ticketPosition.ToRecordPosition(),
 		}, sdk.ErrBackoffRetry
@@ -101,7 +108,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	c.endOfStream = res.EndOfStream
 
 	if len(res.TicketList) == 0 {
-		c.ticketPosition.NextIterator = time.Now().Add(c.config.IterationInterval).Unix()
+		c.ticketPosition.NextIterator = time.Now().Add(c.config.IterationInterval)
 		return sdk.Record{
 			Position: c.ticketPosition.ToRecordPosition(),
 		}, sdk.ErrBackoffRetry
@@ -115,7 +122,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 	ticketIndex := position.TicketPosition{
 		AfterURL:     c.ticketPosition.AfterURL,
-		NextIterator: time.Now().Unix(),
+		NextIterator: time.Now(),
 	}
 
 	return sdk.Record{
