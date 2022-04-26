@@ -13,6 +13,7 @@ type TicketPosition struct {
 	NextIterator time.Time
 }
 
+//ToRecordPosition will extract the after_url from the ticket result json
 func (pos TicketPosition) ToRecordPosition() sdk.Position {
 	res, err := json.Marshal(pos)
 	if err != nil {
@@ -30,9 +31,10 @@ func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	}
 
 	var tp TicketPosition
+	//parse the next position to sdk.Record
 	err = json.Unmarshal(p, &tp)
 	if err != nil {
-		return TicketPosition{}, fmt.Errorf("Couldn't parse the position timestamp")
+		return TicketPosition{}, fmt.Errorf("Couldn't parse the after_cursor position")
 	}
 
 	return tp, err

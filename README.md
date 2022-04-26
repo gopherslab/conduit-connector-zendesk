@@ -53,6 +53,11 @@ Common JSON attribute added to the response
 
 ##### NOTE: `fetchinterval` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
 
+# Limitations
+
+- IncrementalExport will take maximum 10 API request per minute
+- `per_page` is a optional parameter for default per page result. default is set to 1000
+
 # References
 
 - https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-apibest-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
