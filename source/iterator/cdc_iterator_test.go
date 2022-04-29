@@ -28,8 +28,7 @@ func TestNewCDCIterator(t *testing.T) {
 				APIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			tp: position.TicketPosition{
-				AfterURL:     "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDM3NzAzNS4wfHwyNnw%3D",
-				NextIterator: time.Now(),
+				AfterURL: "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDg4NDkzNC4wfHw0N3w%3D",
 			},
 			want: &CDCIterator{
 				client: &http.Client{},
@@ -41,8 +40,7 @@ func TestNewCDCIterator(t *testing.T) {
 				endOfStream: false,
 				startTime:   time.Unix(0, 0),
 				ticketPosition: position.TicketPosition{
-					AfterURL:     "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDM3NzAzNS4wfHwyNnw%3D",
-					NextIterator: time.Now(),
+					AfterURL: "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDg4NDkzNC4wfHw0N3w%3D",
 				},
 			},
 		},
