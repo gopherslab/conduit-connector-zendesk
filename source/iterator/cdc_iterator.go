@@ -52,7 +52,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	var res response
 	var url string
 
-	//Starttime is the initial url to be hit for zendesk api
+	// Starttime is the initial url to be hit for zendesk api
 	if !c.startTime.IsZero() {
 		url = fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=%d", c.config.Domain, c.startTime.Unix())
 	}
@@ -74,7 +74,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 	defer resp.Body.Close()
 
-	//Validation for httpStatusCode 429 - Too many Requests, Retry value after `93s`
+	// Validation for httpStatusCode 429 - Too many Requests, Retry value after `93s`
 	if resp.StatusCode == http.StatusTooManyRequests {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
 		retryValue, err := strconv.Atoi(resp.Header.Get("Retry_After"))
@@ -84,7 +84,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 			}, fmt.Errorf("unable to get retry value")
 		}
 
-		//IterationInterval between two successive api request to zendesk
+		// IterationInterval between two successive api request to zendesk
 		c.RetryAfter = time.Duration(retryValue)
 		c.ticketPosition.NextIterator = time.Now().Add(c.RetryAfter)
 		return sdk.Record{
@@ -110,7 +110,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 
 	c.endOfStream = res.EndOfStream
 
-	//Validate the ticket response, if zero, api request is retracted, else it will be sent
+	// Validate the ticket response, if zero, api request is retracted, else it will be sent
 	if len(res.TicketList) == 0 {
 		c.ticketPosition.NextIterator = time.Now().Add(c.config.IterationInterval)
 		return sdk.Record{

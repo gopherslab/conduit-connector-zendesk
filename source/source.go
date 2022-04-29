@@ -14,7 +14,6 @@ type Source struct {
 	sdk.UnimplementedSource
 	config   config.Config
 	iterator Iterator
-	position sdk.Position
 }
 
 type Iterator interface {
@@ -28,18 +27,15 @@ func NewSource() sdk.Source {
 }
 
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
-
 	zendeskConfig, err := config.Parse(cfg)
 	if err != nil {
 		return err
 	}
 	s.config = zendeskConfig
-
 	return nil
 }
 
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
-
 	ticketPos, err := position.ParsePosition(rp)
 	if err != nil {
 		return err
@@ -53,7 +49,6 @@ func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 }
 
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
-
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
@@ -62,13 +57,11 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if err != nil {
 		return sdk.Record{}, err
 	}
-
 	return r, nil
 }
 
 func (s *Source) Teardown(ctx context.Context) error {
-
-	sdk.Logger(ctx).Info().Msg("Shutting down Zendesk Client")
+	sdk.Logger(ctx).Info().Msg("shutting down zendesk client")
 	if s.iterator != nil {
 		s.iterator.Stop()
 		s.iterator = nil
