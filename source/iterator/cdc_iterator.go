@@ -49,7 +49,6 @@ func (c *CDCIterator) HasNext(ctx context.Context) bool {
 }
 
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
-	sdk.Logger(ctx).Info().Msg(fmt.Sprintf("api hit at %v", c.ticketPosition.NextIterator))
 	var res response
 	var url string
 
@@ -88,7 +87,6 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 		//IterationInterval between two successive api request to zendesk
 		c.RetryAfter = time.Duration(retryValue)
 		c.ticketPosition.NextIterator = time.Now().Add(c.RetryAfter)
-		sdk.Logger(ctx).Info().Msg(fmt.Sprintf("Next api hit at %v", c.ticketPosition.NextIterator))
 		return sdk.Record{
 			Position: c.ticketPosition.ToRecordPosition(),
 		}, sdk.ErrBackoffRetry
