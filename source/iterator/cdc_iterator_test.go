@@ -71,7 +71,6 @@ func TestNewCDCIterator(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestHasNext(t *testing.T) {

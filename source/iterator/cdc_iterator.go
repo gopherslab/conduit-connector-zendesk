@@ -48,7 +48,6 @@ type response struct {
 }
 
 func NewCDCIterator(ctx context.Context, config config.Config, tp position.TicketPosition) (*CDCIterator, error) {
-
 	cdc := &CDCIterator{
 		client:         &http.Client{},
 		config:         config,
@@ -77,7 +76,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 		url = c.ticketPosition.AfterURL
 	}
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return sdk.Record{}, fmt.Errorf("could not access the zendesk")
 	}
