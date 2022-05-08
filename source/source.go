@@ -18,6 +18,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
@@ -85,6 +86,14 @@ func (s *Source) Teardown(ctx context.Context) error {
 	return nil
 }
 
-func (s *Source) Ack(ctx context.Context, position sdk.Position) error {
+func (s *Source) Ack(ctx context.Context, pos sdk.Position) error {
+	ticketPos, err := position.ParsePosition(pos)
+	if err != nil {
+		return fmt.Errorf("invalid position: %w", err)
+	}
+	sdk.Logger(ctx).Info().
+		Float64("id", ticketPos.ID).
+		Time("update_time", ticketPos.LastModified).
+		Msg("ack received")
 	return nil
 }

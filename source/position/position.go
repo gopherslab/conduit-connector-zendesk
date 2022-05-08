@@ -25,12 +25,12 @@ import (
 )
 
 type TicketPosition struct {
-	AfterURL     string
-	NextIterator time.Time
+	LastModified time.Time
+	ID           float64 // two tickets can have the same update time, id is to keep the position unique across tickets
 }
 
 // ToRecordPosition will extract the after_url from the ticket result json
-func (pos TicketPosition) ToRecordPosition() sdk.Position {
+func (pos *TicketPosition) ToRecordPosition() sdk.Position {
 	res, err := json.Marshal(pos)
 	if err != nil {
 		return sdk.Position{}
@@ -39,18 +39,18 @@ func (pos TicketPosition) ToRecordPosition() sdk.Position {
 	return res
 }
 
-func ParsePosition(p sdk.Position) (TicketPosition, error) {
+func ParsePosition(p sdk.Position) (*TicketPosition, error) {
 	var err error
 
 	if p == nil {
-		return TicketPosition{}, err
+		return nil, err
 	}
 
-	var tp TicketPosition
+	var tp *TicketPosition
 	// parse the next position to sdk.Record
 	err = json.Unmarshal(p, &tp)
 	if err != nil {
-		return TicketPosition{}, fmt.Errorf("couldn't parse the after_cursor position")
+		return nil, fmt.Errorf("couldn't parse the after_cursor position")
 	}
 
 	return tp, err

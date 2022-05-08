@@ -29,22 +29,22 @@ func Specification() sdk.Specification {
 		Version: "v0.1.0",
 		Author:  "Meroxa,Inc.",
 		SourceParams: map[string]sdk.Parameter{
-			config.ConfigKeyDomain: {
+			config.KeyDomain: {
 				Default:     "",
 				Required:    true,
 				Description: "A domain is referred as the organization name to which zendesk is registered",
 			},
-			config.ConfigKeyUserName: {
+			config.KeyUserName: {
 				Default:     "",
 				Required:    true,
 				Description: "Login to zendesk performed using username",
 			},
-			config.ConfigKeyAPIToken: {
+			config.KeyAPIToken: {
 				Default:     "",
 				Required:    true,
 				Description: "password to login",
 			},
-			config.ConfigKeyIterationInterval: {
+			config.KeyPollingPeriod: {
 				Default:     "2m",
 				Required:    false,
 				Description: "Fetch interval for consecutive iterations",

@@ -31,32 +31,22 @@ func TestNewCDCIterator(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  config.Config
-		tp      position.TicketPosition
+		tp      *position.TicketPosition
 		want    *CDCIterator
 		isError bool
 	}{
 		{
-			name: "NewCDCIterator with startTime=0",
+			name: "NewCDCIterator with lastModifiedTime=0",
 			config: config.Config{
-				Domain:   "testlab",
-				UserName: "test@testlab.com",
-				APIToken: "gkdsaj)({jgo43646435#$!ga",
+				Domain:        "testlab",
+				UserName:      "test@testlab.com",
+				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+				PollingPeriod: time.Millisecond,
 			},
-			tp: position.TicketPosition{
-				AfterURL: "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDg4NDkzNC4wfHw0N3w%3D",
-			},
+			tp: &position.TicketPosition{},
 			want: &CDCIterator{
-				client: &http.Client{},
-				config: config.Config{
-					Domain:   "testlab",
-					UserName: "test@testlab.com",
-					APIToken: "gkdsaj)({jgo43646435#$!ga",
-				},
-				endOfStream: false,
-				startTime:   time.Unix(0, 0),
-				ticketPosition: position.TicketPosition{
-					AfterURL: "https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDg4NDkzNC4wfHw0N3w%3D",
-				},
+				client:           &http.Client{},
+				lastModifiedTime: time.Unix(0, 0),
 			},
 		},
 	}
@@ -75,7 +65,6 @@ func TestNewCDCIterator(t *testing.T) {
 
 func TestHasNext(t *testing.T) {
 	var cdc CDCIterator
-	cdc.endOfStream = false
 	tests := struct {
 		name     string
 		response bool

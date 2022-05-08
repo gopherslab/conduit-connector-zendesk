@@ -22,50 +22,50 @@ import (
 )
 
 const (
-	ConfigKeyDomain            = "domain"
-	ConfigKeyUserName          = "username"
-	ConfigKeyAPIToken          = "apitoken"
-	ConfigKeyIterationInterval = "iterationinterval"
-	DefaulIterationInterval    = "2m"
+	KeyDomain            = "domain"
+	KeyUserName          = "user_name"
+	KeyAPIToken          = "api_token"
+	KeyPollingPeriod     = "polling_period"
+	defaultPollingPeriod = "2m"
 )
 
 type Config struct {
-	Domain            string
-	UserName          string
-	APIToken          string
-	IterationInterval time.Duration
+	Domain        string
+	UserName      string
+	APIToken      string
+	PollingPeriod time.Duration
 }
 
 func Parse(cfg map[string]string) (Config, error) {
-	userDomain, ok := cfg[ConfigKeyDomain]
+	userDomain, ok := cfg[KeyDomain]
 	if !ok {
-		return Config{}, requiredConfigErr(ConfigKeyDomain)
+		return Config{}, requiredConfigErr(KeyDomain)
 	}
 
-	userName, ok := cfg[ConfigKeyUserName]
+	userName, ok := cfg[KeyUserName]
 	if !ok {
-		return Config{}, requiredConfigErr(ConfigKeyUserName)
+		return Config{}, requiredConfigErr(KeyUserName)
 	}
 
-	userAPIToken, ok := cfg[ConfigKeyAPIToken]
+	userAPIToken, ok := cfg[KeyAPIToken]
 	if !ok {
-		return Config{}, requiredConfigErr(ConfigKeyAPIToken)
+		return Config{}, requiredConfigErr(KeyAPIToken)
 	}
 
-	itertionTime := cfg[ConfigKeyIterationInterval]
-	if itertionTime == "" {
-		itertionTime = DefaulIterationInterval
+	pollingPeriod := cfg[KeyPollingPeriod]
+	if pollingPeriod == "" {
+		pollingPeriod = defaultPollingPeriod
 	}
-	interval, err := time.ParseDuration(itertionTime)
+	duration, err := time.ParseDuration(pollingPeriod)
 	if err != nil {
-		return Config{}, fmt.Errorf("%q can't parse time interval", itertionTime)
+		return Config{}, fmt.Errorf("%q can't parse time interval: %w", pollingPeriod, err)
 	}
 
 	config := Config{
-		Domain:            userDomain,
-		UserName:          userName,
-		APIToken:          userAPIToken,
-		IterationInterval: interval,
+		Domain:        userDomain,
+		UserName:      userName,
+		APIToken:      userAPIToken,
+		PollingPeriod: duration,
 	}
 
 	return config, nil

@@ -32,40 +32,40 @@ func TestParse(t *testing.T) {
 		{
 			name: "Login with all authentication parameters",
 			config: map[string]string{
-				ConfigKeyDomain:            "testlab",
-				ConfigKeyUserName:          "test@testlab.com",
-				ConfigKeyAPIToken:          "gkdsaj)({jgo43646435#$!ga",
-				ConfigKeyIterationInterval: "10m",
+				KeyDomain:        "testlab",
+				KeyUserName:      "test@testlab.com",
+				KeyAPIToken:      "gkdsaj)({jgo43646435#$!ga",
+				KeyPollingPeriod: "10m",
 			},
 			want: Config{
-				Domain:            "testlab",
-				UserName:          "test@testlab.com",
-				APIToken:          "gkdsaj)({jgo43646435#$!ga",
-				IterationInterval: 600000000000,
+				Domain:        "testlab",
+				UserName:      "test@testlab.com",
+				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+				PollingPeriod: 600000000000,
 			},
 			isError: false,
 		},
 		{
 			name: "Login with all authentication parameters with default fetch interval",
 			config: map[string]string{
-				ConfigKeyDomain:            "testlab",
-				ConfigKeyUserName:          "test@testlab.com",
-				ConfigKeyAPIToken:          "gkdsaj)({jgo43646435#$!ga",
-				ConfigKeyIterationInterval: "",
+				KeyDomain:        "testlab",
+				KeyUserName:      "test@testlab.com",
+				KeyAPIToken:      "gkdsaj)({jgo43646435#$!ga",
+				KeyPollingPeriod: "",
 			},
 			want: Config{
-				Domain:            "testlab",
-				UserName:          "test@testlab.com",
-				APIToken:          "gkdsaj)({jgo43646435#$!ga",
-				IterationInterval: 120000000000,
+				Domain:        "testlab",
+				UserName:      "test@testlab.com",
+				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+				PollingPeriod: 120000000000,
 			},
 			isError: false,
 		},
 		{
 			name: "Login with without domain",
 			config: map[string]string{
-				ConfigKeyUserName: "test@testlab.com",
-				ConfigKeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyUserName: "test@testlab.com",
+				KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want:    Config{},
 			isError: true,
@@ -73,8 +73,8 @@ func TestParse(t *testing.T) {
 		{
 			name: "Login with without username",
 			config: map[string]string{
-				ConfigKeyDomain:   "testlab",
-				ConfigKeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyDomain:   "testlab",
+				KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want:    Config{},
 			isError: true,
@@ -82,7 +82,7 @@ func TestParse(t *testing.T) {
 		{
 			name: "Login without domain and username",
 			config: map[string]string{
-				ConfigKeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want:    Config{},
 			isError: true,
@@ -90,8 +90,8 @@ func TestParse(t *testing.T) {
 		{
 			name: "Login without APIToken",
 			config: map[string]string{
-				ConfigKeyDomain:   "testlab",
-				ConfigKeyUserName: "test@testlab.com",
+				KeyDomain:   "testlab",
+				KeyUserName: "test@testlab.com",
 			},
 			want:    Config{},
 			isError: true,
