@@ -55,22 +55,41 @@ type response struct {
 
 func NewCDCIterator(ctx context.Context, config config.Config, tp *position.TicketPosition) (*CDCIterator, error) {
 	tmbWithCtx, ctx := tomb.WithContext(ctx)
+	lastModified := time.Unix(0, 0)
+	if tp.LastModified.After(lastModified) {
+		lastModified = tp.LastModified
+	}
 	cdc := &CDCIterator{
 		userName:         config.UserName,
 		apiToken:         config.APIToken,
 		client:           &http.Client{},
-		lastModifiedTime: tp.LastModified,
+		lastModifiedTime: lastModified,
 		tomb:             tmbWithCtx,
 		caches:           make(chan []sdk.Record, 1),
 		buffer:           make(chan sdk.Record, 1),
 		ticker:           time.NewTicker(config.PollingPeriod),
-		baseURL:          fmt.Sprintf("https://%s.zendesk.com/api/v2/incremental/tickets/cursor.json", config.Domain),
+		baseURL:          fmt.Sprintf("https://%s.zendesk.com", config.Domain),
 	}
 
 	cdc.tomb.Go(cdc.startCDC(ctx))
 	cdc.tomb.Go(cdc.flush)
 
 	return cdc, nil
+}
+
+func (c *CDCIterator) HasNext(_ context.Context) bool {
+	return len(c.buffer) > 0 || !c.tomb.Alive() // return true in case of go routines dying, error will be returned by Next
+}
+
+func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
+	select {
+	case rec := <-c.buffer:
+		return rec, nil
+	case <-c.tomb.Dying():
+		return sdk.Record{}, c.tomb.Err()
+	case <-ctx.Done():
+		return sdk.Record{}, ctx.Err()
+	}
 }
 
 func (c *CDCIterator) startCDC(ctx context.Context) func() error {
@@ -117,16 +136,12 @@ func (c *CDCIterator) flush() error {
 	}
 }
 
-func (c *CDCIterator) HasNext(_ context.Context) bool {
-	return len(c.buffer) > 0 || !c.tomb.Alive() // return true in case of go routines dying, error will be returned by Next
-}
-
 func (c *CDCIterator) fetchRecords(ctx context.Context) ([]sdk.Record, error) {
 	if c.nextRun.After(time.Now()) {
 		return nil, nil
 	}
 
-	url := fmt.Sprintf("%s?start_time=%d", c.baseURL, c.lastModifiedTime.Add(time.Second).Unix()) // add one extra second, to get newer updates only
+	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=%d", c.baseURL, c.lastModifiedTime.Add(time.Second).Unix()) // add one extra second, to get newer updates only
 
 	// if after URL is available, use that
 	if c.afterURL != "" {
@@ -148,13 +163,13 @@ func (c *CDCIterator) fetchRecords(ctx context.Context) ([]sdk.Record, error) {
 	// Validation for httpStatusCode 429 - Too many Requests, Retry value after `93s`
 	if resp.StatusCode == http.StatusTooManyRequests {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
-		retryValue, err := strconv.Atoi(resp.Header.Get("Retry_After"))
+		retryValue, err := strconv.ParseInt(resp.Header.Get("Retry_After"), 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get retry value: %w", err)
 		}
 
 		// skip hitting API till retry_after duration passes
-		c.nextRun = time.Now().Add(time.Duration(retryValue))
+		c.nextRun = time.Now().Add(time.Duration(retryValue) * time.Second)
 		return nil, nil
 	}
 
@@ -177,11 +192,12 @@ func (c *CDCIterator) fetchRecords(ctx context.Context) ([]sdk.Record, error) {
 		c.afterURL = *res.AfterURL
 	}
 
-	return toRecords(res.TicketList)
+	return c.toRecords(res.TicketList)
 }
 
-func toRecords(tickets []map[string]interface{}) ([]sdk.Record, error) {
+func (c *CDCIterator) toRecords(tickets []map[string]interface{}) ([]sdk.Record, error) {
 	records := make([]sdk.Record, 0, len(tickets))
+	lastValidModifiedTime := c.lastModifiedTime
 	for _, ticket := range tickets {
 		payload, err := json.Marshal(ticket)
 		if err != nil {
@@ -200,13 +216,23 @@ func toRecords(tickets []map[string]interface{}) ([]sdk.Record, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid time in created_at field: %w", err)
 		}
-		lastModifiedTime := updatedAt
+
+		// there were a few records from zendesk, which had both created_at and updated_at set to 1970-01-01T00:00:00Z
+		// handle such case, to ensure we don't start pulling all the records after the pause
 		if updatedAt.IsZero() {
-			lastModifiedTime = createdAt
+			if createdAt.IsZero() || createdAt.Before(lastValidModifiedTime) {
+				updatedAt = lastValidModifiedTime
+			} else {
+				updatedAt = createdAt
+			}
+		}
+
+		if updatedAt.After(lastValidModifiedTime) {
+			lastValidModifiedTime = updatedAt
 		}
 
 		records = append(records, sdk.Record{
-			Position:  (&position.TicketPosition{LastModified: lastModifiedTime, ID: id}).ToRecordPosition(),
+			Position:  (&position.TicketPosition{LastModified: updatedAt, ID: id}).ToRecordPosition(),
 			Metadata:  nil,
 			CreatedAt: createdAt,
 			Key:       sdk.RawData(fmt.Sprintf("%v", id)),
@@ -214,17 +240,6 @@ func toRecords(tickets []map[string]interface{}) ([]sdk.Record, error) {
 		})
 	}
 	return records, nil
-}
-
-func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
-	select {
-	case rec := <-c.buffer:
-		return rec, nil
-	case <-c.tomb.Dying():
-		return sdk.Record{}, c.tomb.Err()
-	case <-ctx.Done():
-		return sdk.Record{}, ctx.Err()
-	}
 }
 
 func basicAuth(username, apiToken string) string {

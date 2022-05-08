@@ -18,7 +18,14 @@ package iterator
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	sdk "github.com/conduitio/conduit-connector-sdk"
+	"gopkg.in/tomb.v2"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -32,7 +39,6 @@ func TestNewCDCIterator(t *testing.T) {
 		name    string
 		config  config.Config
 		tp      *position.TicketPosition
-		want    *CDCIterator
 		isError bool
 	}{
 		{
@@ -44,10 +50,6 @@ func TestNewCDCIterator(t *testing.T) {
 				PollingPeriod: time.Millisecond,
 			},
 			tp: &position.TicketPosition{},
-			want: &CDCIterator{
-				client:           &http.Client{},
-				lastModifiedTime: time.Unix(0, 0),
-			},
 		},
 	}
 	for _, tt := range tests {
@@ -57,23 +59,191 @@ func TestNewCDCIterator(t *testing.T) {
 				assert.NotNil(t, err)
 			} else {
 				assert.NotNil(t, res)
-				assert.Equal(t, res, tt.want)
+				assert.Equal(t, tt.config.UserName, res.userName)
+				assert.Equal(t, tt.config.APIToken, res.apiToken)
+				assert.Equal(t, res.baseURL, "https://testlab.zendesk.com")
+				assert.NotNil(t, res.caches)
+				assert.NotNil(t, res.buffer)
+				assert.NotNil(t, res.tomb)
+				assert.NotNil(t, res.ticker)
 			}
 		})
 	}
 }
 
-func TestHasNext(t *testing.T) {
-	var cdc CDCIterator
-	tests := struct {
-		name     string
-		response bool
-	}{
-		name:     "Has next",
-		response: true,
+func TestFlush(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	tmbWithCtx, _ := tomb.WithContext(ctx)
+	cdc := &CDCIterator{
+		buffer: make(chan sdk.Record, 1),
+		caches: make(chan []sdk.Record, 1),
+		tomb:   tmbWithCtx,
 	}
-	t.Run(tests.name, func(t *testing.T) {
-		res := cdc.HasNext(context.Background())
-		assert.Equal(t, res, tests.response)
-	})
+	randomErr := errors.New("random error")
+	cdc.tomb.Go(cdc.flush)
+
+	in := sdk.Record{Position: []byte("some_position")}
+	cdc.caches <- []sdk.Record{in}
+	for {
+		select {
+		case <-cdc.tomb.Dying():
+			assert.EqualError(t, cdc.tomb.Err(), randomErr.Error())
+			cancel()
+			return
+		case out := <-cdc.buffer:
+			assert.Equal(t, in, out)
+			cdc.tomb.Kill(randomErr)
+		}
+	}
+}
+
+func TestFetchRecords(t *testing.T) {
+	th := &testHandler{
+		t:          t,
+		url:        &url.URL{Host: "", Path: "/api/v2/incremental/tickets/cursor.json", RawQuery: "start_time=1"},
+		statusCode: 200,
+		resp:       []byte(`{"after_url":"something","tickets":[{"id":1,"updated_at":"2022-05-08T05:49:55Z","created_at":"2022-05-08T05:49:55Z"}]}`),
+		username:   "dummy_user",
+		apiToken:   "dummy_token",
+	}
+	testServer := httptest.NewServer(th)
+	cdc := &CDCIterator{
+		userName:         th.username,
+		apiToken:         th.apiToken,
+		client:           &http.Client{},
+		baseURL:          testServer.URL,
+		lastModifiedTime: time.Unix(0, 0),
+	}
+	ctx := context.Background()
+	recs, err := cdc.fetchRecords(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, recs, 1)
+}
+
+func TestFetchRecords_429(t *testing.T) {
+	header := http.Header{}
+	header.Set("Retry_After", "93")
+	th := &testHandler{
+		t:          t,
+		url:        &url.URL{Path: "/api/v2/incremental/tickets/cursor.json", RawQuery: "cursor=some_dummy"},
+		statusCode: 429,
+		resp:       []byte(``),
+		username:   "dummy_user",
+		apiToken:   "dummy_token",
+		header:     header,
+	}
+	testServer := httptest.NewServer(th)
+	cdc := &CDCIterator{
+		userName:         th.username,
+		apiToken:         th.apiToken,
+		client:           &http.Client{},
+		baseURL:          testServer.URL,
+		lastModifiedTime: time.Unix(0, 0),
+		afterURL:         fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?cursor=some_dummy", testServer.URL),
+	}
+	ctx := context.Background()
+	recs, err := cdc.fetchRecords(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, recs, 0)
+	assert.GreaterOrEqual(t, cdc.nextRun.Unix(), time.Now().Add(90*time.Second).Unix())
+}
+
+func TestFetchRecords_500(t *testing.T) {
+	th := &testHandler{
+		t:          t,
+		url:        &url.URL{Path: "/api/v2/incremental/tickets/cursor.json", RawQuery: "cursor=some_dummy"},
+		statusCode: 500,
+		resp:       []byte(``),
+		username:   "dummy_user",
+		apiToken:   "dummy_token",
+	}
+	testServer := httptest.NewServer(th)
+	cdc := &CDCIterator{
+		userName:         th.username,
+		apiToken:         th.apiToken,
+		client:           &http.Client{},
+		baseURL:          testServer.URL,
+		lastModifiedTime: time.Unix(0, 0),
+		afterURL:         fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?cursor=some_dummy", testServer.URL),
+	}
+	ctx := context.Background()
+	recs, err := cdc.fetchRecords(ctx)
+	assert.EqualError(t, err, "non 200 status code received(500)")
+	assert.Len(t, recs, 0)
+}
+
+type testHandler struct {
+	t          *testing.T
+	url        *url.URL
+	statusCode int
+	header     http.Header
+	resp       []byte
+	username   string
+	apiToken   string
+}
+
+func (t *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	assert.Equal(t.t, t.url.Path, r.URL.Path)
+	assert.Equal(t.t, t.url.RawQuery, r.URL.RawQuery)
+
+	assert.Equal(t.t, "Basic "+base64.StdEncoding.EncodeToString([]byte(t.username+"/token:"+t.apiToken)), r.Header.Get("Authorization"))
+	for key, val := range t.header {
+		w.Header().Set(key, val[0])
+	}
+	w.WriteHeader(t.statusCode)
+	w.Write(t.resp)
+}
+
+func TestNext(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	tmbWithCtx, _ := tomb.WithContext(ctx)
+	cdc := &CDCIterator{
+		buffer: make(chan sdk.Record, 1),
+		caches: make(chan []sdk.Record, 1),
+		tomb:   tmbWithCtx,
+	}
+	cdc.tomb.Go(cdc.flush)
+
+	in := sdk.Record{Position: []byte("some_position")}
+	cdc.caches <- []sdk.Record{in}
+	out, err := cdc.Next(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, in, out)
+	cancel()
+	out, err = cdc.Next(ctx)
+	assert.EqualError(t, err, ctx.Err().Error())
+	assert.Empty(t, out)
+}
+
+func TestHasNext(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       func(c *CDCIterator)
+		response bool
+	}{{
+		name: "Has next",
+		fn: func(c *CDCIterator) {
+			c.buffer <- sdk.Record{}
+		},
+		response: true,
+	}, {
+		name:     "no record in buffer",
+		fn:       func(c *CDCIterator) {},
+		response: false,
+	}, {
+		name: "record in buffer, tomb dead",
+		fn: func(c *CDCIterator) {
+			c.tomb.Kill(errors.New("random error"))
+			c.buffer <- sdk.Record{}
+		},
+		response: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cdc := &CDCIterator{buffer: make(chan sdk.Record, 1), tomb: &tomb.Tomb{}}
+			tt.fn(cdc)
+			res := cdc.HasNext(context.Background())
+			assert.Equal(t, res, tt.response)
+		})
+	}
 }
