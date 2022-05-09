@@ -21,24 +21,24 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	sdk "github.com/conduitio/conduit-connector-sdk"
-	"gopkg.in/tomb.v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
+	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/position"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/tomb.v2"
 )
 
 func TestNewCDCIterator(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  config.Config
-		tp      *position.TicketPosition
+		tp      position.TicketPosition
 		isError bool
 	}{
 		{
@@ -49,7 +49,7 @@ func TestNewCDCIterator(t *testing.T) {
 				APIToken:      "gkdsaj)({jgo43646435#$!ga",
 				PollingPeriod: time.Millisecond,
 			},
-			tp: &position.TicketPosition{},
+			tp: position.TicketPosition{},
 		},
 	}
 	for _, tt := range tests {
@@ -191,7 +191,7 @@ func (t *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(key, val[0])
 	}
 	w.WriteHeader(t.statusCode)
-	w.Write(t.resp)
+	_, _ = w.Write(t.resp)
 }
 
 func TestNext(t *testing.T) {

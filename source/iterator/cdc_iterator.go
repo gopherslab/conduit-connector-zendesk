@@ -53,7 +53,7 @@ type response struct {
 	TicketList  []map[string]interface{} `json:"tickets"`
 }
 
-func NewCDCIterator(ctx context.Context, config config.Config, tp *position.TicketPosition) (*CDCIterator, error) {
+func NewCDCIterator(ctx context.Context, config config.Config, tp position.TicketPosition) (*CDCIterator, error) {
 	tmbWithCtx, ctx := tomb.WithContext(ctx)
 	lastModified := time.Unix(0, 0)
 	if tp.LastModified.After(lastModified) {

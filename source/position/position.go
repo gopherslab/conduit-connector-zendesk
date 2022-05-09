@@ -39,18 +39,18 @@ func (pos *TicketPosition) ToRecordPosition() sdk.Position {
 	return res
 }
 
-func ParsePosition(p sdk.Position) (*TicketPosition, error) {
+func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	var err error
 
-	if p == nil {
-		return nil, err
+	if len(p) == 0 {
+		return TicketPosition{}, err
 	}
 
-	var tp *TicketPosition
+	var tp TicketPosition
 	// parse the next position to sdk.Record
 	err = json.Unmarshal(p, &tp)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse the after_cursor position")
+		return TicketPosition{}, fmt.Errorf("couldn't parse the after_cursor position: %w", err)
 	}
 
 	return tp, err
