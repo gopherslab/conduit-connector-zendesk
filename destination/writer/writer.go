@@ -39,14 +39,14 @@ type Writer struct {
 	client   *http.Client
 }
 
-func NewWriter(cfg config.Config, client *http.Client) *Writer {
+func NewWriter(cfg config.Config, client *http.Client) (*Writer, error) {
 	return &Writer{
 		url:      fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", cfg.Domain),
 		nextRun:  time.Time{},
 		client:   client,
 		userName: cfg.UserName,
 		apiToken: cfg.APIToken,
-	}
+	}, nil
 }
 
 func (w *Writer) Write(ctx context.Context, records []sdk.Record) error {
@@ -66,7 +66,7 @@ func (w *Writer) Write(ctx context.Context, records []sdk.Record) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", w.basicAuthToken())
+	req.Header.Add("Authorization", "Basic "+basicAuth(w.userName, w.apiToken))
 
 	resp, err := w.client.Do(req)
 	if err != nil {
@@ -120,7 +120,7 @@ func jsonParseRecord(records []sdk.Record) ([]byte, error) {
 	return m, nil
 }
 
-func (w *Writer) basicAuthToken() string {
-	auth := "Basic " + w.userName + "/token:" + w.apiToken
+func basicAuth(username, apiToken string) string {
+	auth := username + "/token:" + apiToken
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }

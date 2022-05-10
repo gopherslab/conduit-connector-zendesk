@@ -44,22 +44,38 @@ Common JSON attribute added to the response
 
 ### Configuration
 
-| name          | description                                                                  | required | default |
-| -------       | ---------------------------------------------------------------------------  | -------- | ------- |
-|`domain`       | domain is the registered by organization to zendesk                          | true     |         |
-|`username`     | username is the registered for login                                         | true     |         |
-|`apitoken`     | password associated with the username for login                              | true     |         |
-|`fetchinterval`| fetchinterval is the frequency of conduit hitting zendesk API- Default is 2m | false    |  "2m"   |
+| name                  | description                                                                  | required | default |
+| -------               | ---------------------------------------------------------------------------  | -------- | ------- |
+|`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
+|`zendesk.username`     | username is the registered for login                                         | true     |         |
+|`zendesk.apitoken`     | password associated with the username for login                              | true     |         |
+|`pollingPeriod`        | pollingPeriod is the frequency of conduit hitting zendesk API- Default is 2m | false    |  "2m"   |
 
-##### NOTE: `fetchinterval` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
+##### NOTE: `pollingPeriod` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
+
+## Destination
+The destination Zendesk connector will connect to the api using `zendesk.domain`, `zendesk.username`,`zendesk.apitoken`. Communicate to the `Configure` and if succcess, it will pass control to `Open` else throws the error back. Once the zendesk client is initialized. On failing connector is not ready to write it to zendesk.
+
+### WriteAsync
+The source input from server will be written in the `buffer`, size of the buffer is specified in the configuration. Once the buffer if full it write the record to zendesk bulk import api `create_many`. Each object from tickets array is unmarshalled and made comptabile to write it to destination zendesk.
+
+### Configuration
+| name                  | description                                                                  | required | default |
+| -------               | ---------------------------------------------------------------------------  | -------- | ------- |
+|`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
+|`zendesk.username`     | username is the registered for login                                         | true     |         |
+|`zendesk.apitoken`     | password associated with the username for login                              | true     |         | 
 
 # Limitations
 
 - IncrementalExport will take maximum 10 API request per minute
 - `per_page` is a optional parameter for default per page result. default is set to 1000
+- `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
+- Ticket import can be authorized only by `admins`
 
 # References
 
 - https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-apibest-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
 - https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/#cursor-based-pagination-json-format
 - https://developer.zendesk.com/documentation/ticketing/managing-tickets/using-the-incremental-export-api/#cursor-based-incremental-exports
+- https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import

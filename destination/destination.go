@@ -61,7 +61,7 @@ func (d *Destination) Open(ctx context.Context) error {
 	d.mux = &sync.Mutex{}
 	d.buffer = make([]sdk.Record, 0, d.cfg.BufferSize)
 	d.ackFuncCache = make([]sdk.AckFunc, 0, d.cfg.BufferSize)
-	d.writer = writer.NewWriter(d.cfg, &http.Client{})
+	d.writer, d.err = writer.NewWriter(d.cfg, &http.Client{})
 
 	return nil
 }

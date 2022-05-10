@@ -51,9 +51,9 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, fmt.Errorf("%q can't parse time interval: %w", pollingPeriod, err)
 	}
 
-	destinationConfig := Config{
+	sourceConfig := Config{
 		Config:        defaultConfig,
 		PollingPeriod: duration,
 	}
-	return destinationConfig, nil
+	return sourceConfig, nil
 }
