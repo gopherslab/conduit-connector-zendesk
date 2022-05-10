@@ -11,9 +11,12 @@ import (
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/destination/destinationConfig"
 	"github.com/conduitio/conduit-connector-zendesk/destination/model"
 )
+
+var ZendeskBulkImportURL = fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", config.KeyDomain)
 
 func Write(ctx context.Context, client *http.Client, cfg destinationConfig.Config, input []sdk.Record) error {
 
@@ -27,7 +30,7 @@ func Write(ctx context.Context, client *http.Client, cfg destinationConfig.Confi
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, destinationConfig.ZendeskBulkImportURL, bytes.NewBuffer(bufferedTicket))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ZendeskBulkImportURL, bytes.NewBuffer(bufferedTicket))
 
 	if err != nil {
 		return err

@@ -18,8 +18,6 @@ const (
 	// DefaultBufferSize is the value BufferSize assumes when the config omits
 	// the buffer size parameter
 	DefaultBufferSize uint64 = 2
-
-	ZendeskBulkImportURL = "https://claim-bridge.zendesk.com/api/v2/imports/tickets/create_many"
 )
 
 type Config struct {

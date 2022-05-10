@@ -61,8 +61,6 @@ func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.
 	d.Buffer = append(d.Buffer, r)
 	d.AckFuncCache = append(d.AckFuncCache, ackFunc)
 
-	//fmt.Println("default buffer size", int(destinationConfig.DefaultBufferSize))
-
 	if len(d.Buffer) >= int(destinationConfig.DefaultBufferSize) {
 		err := d.Flush(ctx)
 		if err != nil {

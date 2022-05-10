@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/conduitio/conduit-connector-zendesk/destination"
 	source "github.com/conduitio/conduit-connector-zendesk/source"
 
 	zendesk "github.com/conduitio/conduit-connector-zendesk"
@@ -25,5 +26,5 @@ import (
 )
 
 func main() {
-	sdk.Serve(zendesk.Specification, source.NewSource, nil)
+	sdk.Serve(zendesk.Specification, source.NewSource, destination.NewDestination)
 }
