@@ -23,9 +23,9 @@ import (
 
 const (
 	KeyDomain            = "domain"
-	KeyUserName          = "user_name"
-	KeyAPIToken          = "api_token"
-	KeyPollingPeriod     = "polling_period"
+	KeyUserName          = "userName"
+	KeyAPIToken          = "apiToken"
+	KeyPollingPeriod     = "pollingPeriod"
 	defaultPollingPeriod = "2m"
 )
 

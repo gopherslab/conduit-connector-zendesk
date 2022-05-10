@@ -49,7 +49,19 @@ func TestNewCDCIterator(t *testing.T) {
 				APIToken:      "gkdsaj)({jgo43646435#$!ga",
 				PollingPeriod: time.Millisecond,
 			},
-			tp: position.TicketPosition{},
+			tp: position.TicketPosition{LastModified: time.Time{}},
+		}, {
+			name: "NewCDCIterator with lastModifiedTime=2022-01-02T15:04:05Z",
+			config: config.Config{
+				Domain:        "testlab",
+				UserName:      "test@testlab.com",
+				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+				PollingPeriod: time.Millisecond,
+			},
+			tp: position.TicketPosition{
+				LastModified: time.Date(2022, 01, 02,
+					15, 04, 05, 0, time.UTC),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -66,6 +78,11 @@ func TestNewCDCIterator(t *testing.T) {
 				assert.NotNil(t, res.buffer)
 				assert.NotNil(t, res.tomb)
 				assert.NotNil(t, res.ticker)
+				expectedTime := tt.tp.LastModified.Unix()
+				if expectedTime < 0 {
+					expectedTime = 0
+				}
+				assert.Equal(t, expectedTime, res.lastModifiedTime.Unix())
 			}
 		})
 	}
@@ -118,6 +135,16 @@ func TestFetchRecords(t *testing.T) {
 	recs, err := cdc.fetchRecords(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, recs, 1)
+}
+
+func TestFetchRecords_RateLimit(t *testing.T) {
+	// in case of nextRun being set later than now, no processing should occur
+	cdc := &CDCIterator{
+		nextRun: time.Now().Add(time.Minute),
+	}
+	recs, err := cdc.fetchRecords(context.Background())
+	assert.Nil(t, err)
+	assert.Nil(t, recs)
 }
 
 func TestFetchRecords_429(t *testing.T) {
@@ -246,4 +273,13 @@ func TestHasNext(t *testing.T) {
 			assert.Equal(t, res, tt.response)
 		})
 	}
+}
+
+func TestStreamIterator_Stop(t *testing.T) {
+	cdc := &CDCIterator{
+		tomb:   &tomb.Tomb{},
+		ticker: time.NewTicker(time.Second),
+	}
+	cdc.Stop()
+	assert.False(t, cdc.tomb.Alive())
 }
