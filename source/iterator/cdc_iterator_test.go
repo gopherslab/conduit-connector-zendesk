@@ -29,6 +29,7 @@ import (
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/conduitio/conduit-connector-zendesk/config"
+	sourceConfig "github.com/conduitio/conduit-connector-zendesk/source/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/position"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/tomb.v2"
@@ -37,25 +38,29 @@ import (
 func TestNewCDCIterator(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  config.Config
+		config  sourceConfig.Config
 		tp      position.TicketPosition
 		isError bool
 	}{
 		{
 			name: "NewCDCIterator with lastModifiedTime=0",
-			config: config.Config{
-				Domain:        "testlab",
-				UserName:      "test@testlab.com",
-				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+			config: sourceConfig.Config{
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "test@testlab.com",
+					APIToken: "gkdsaj)({jgo43646435#$!ga",
+				},
 				PollingPeriod: time.Millisecond,
 			},
 			tp: position.TicketPosition{LastModified: time.Time{}},
 		}, {
 			name: "NewCDCIterator with lastModifiedTime=2022-01-02T15:04:05Z",
-			config: config.Config{
-				Domain:        "testlab",
-				UserName:      "test@testlab.com",
-				APIToken:      "gkdsaj)({jgo43646435#$!ga",
+			config: sourceConfig.Config{
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "test@testlab.com",
+					APIToken: "gkdsaj)({jgo43646435#$!ga",
+				},
 				PollingPeriod: time.Millisecond,
 			},
 			tp: position.TicketPosition{

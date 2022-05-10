@@ -28,7 +28,7 @@ import (
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/source/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/position"
 	"gopkg.in/tomb.v2"
 )

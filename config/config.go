@@ -18,22 +18,18 @@ package config
 
 import (
 	"fmt"
-	"time"
 )
 
 const (
-	KeyDomain            = "domain"
-	KeyUserName          = "userName"
-	KeyAPIToken          = "apiToken"
-	KeyPollingPeriod     = "pollingPeriod"
-	defaultPollingPeriod = "2m"
+	KeyDomain   = "zendesk.domain"
+	KeyUserName = "zendesk.userName"
+	KeyAPIToken = "zendesk.apiToken" //nolint:gosec //we are not hard coding the credentials
 )
 
 type Config struct {
-	Domain        string
-	UserName      string
-	APIToken      string
-	PollingPeriod time.Duration
+	Domain   string
+	UserName string
+	APIToken string
 }
 
 func Parse(cfg map[string]string) (Config, error) {
@@ -52,20 +48,10 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, requiredConfigErr(KeyAPIToken)
 	}
 
-	pollingPeriod := cfg[KeyPollingPeriod]
-	if pollingPeriod == "" {
-		pollingPeriod = defaultPollingPeriod
-	}
-	duration, err := time.ParseDuration(pollingPeriod)
-	if err != nil {
-		return Config{}, fmt.Errorf("%q can't parse time interval: %w", pollingPeriod, err)
-	}
-
 	config := Config{
-		Domain:        userDomain,
-		UserName:      userName,
-		APIToken:      userAPIToken,
-		PollingPeriod: duration,
+		Domain:   userDomain,
+		UserName: userName,
+		APIToken: userAPIToken,
 	}
 
 	return config, nil
