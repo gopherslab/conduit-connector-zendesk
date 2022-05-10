@@ -1,3 +1,19 @@
+/*
+Copyright © 2022 Meroxa, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package writer
 
 import (
@@ -11,35 +27,48 @@ import (
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/conduitio/conduit-connector-zendesk/config"
-	"github.com/conduitio/conduit-connector-zendesk/destination/destinationConfig"
+	"github.com/conduitio/conduit-connector-zendesk/destination/config"
 	"github.com/conduitio/conduit-connector-zendesk/destination/model"
 )
 
-var ZendeskBulkImportURL = fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", config.KeyDomain)
+type Writer struct {
+	url      string
+	userName string
+	apiToken string
+	nextRun  time.Time
+	client   *http.Client
+}
 
-func Write(ctx context.Context, client *http.Client, cfg destinationConfig.Config, input []sdk.Record) error {
+func NewWriter(cfg config.Config, client *http.Client) *Writer {
+	return &Writer{
+		url:      fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", cfg.Domain),
+		nextRun:  time.Time{},
+		client:   client,
+		userName: cfg.UserName,
+		apiToken: cfg.APIToken,
+	}
+}
 
-	var nextRun time.Time
-	if nextRun.After(time.Now()) {
+func (w *Writer) Write(ctx context.Context, records []sdk.Record) error {
+	if w.nextRun.After(time.Now()) {
 		return nil
 	}
 
-	bufferedTicket, err := jsonParseRecord(input)
+	bufferedTicket, err := jsonParseRecord(records)
 	if err != nil {
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ZendeskBulkImportURL, bytes.NewBuffer(bufferedTicket))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, w.url, bytes.NewBuffer(bufferedTicket))
 
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", "Basic "+basicAuth(cfg.UserName, cfg.APIToken))
+	req.Header.Add("Authorization", w.basicAuthToken())
 
-	resp, err := client.Do(req)
+	resp, err := w.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("could not connect to zendesk client")
 	}
@@ -55,7 +84,7 @@ func Write(ctx context.Context, client *http.Client, cfg destinationConfig.Confi
 		}
 
 		// skip hitting API till retry_after duration passes
-		nextRun = time.Now().Add(time.Duration(retryValue) * time.Second)
+		w.nextRun = time.Now().Add(time.Duration(retryValue) * time.Second)
 		return nil
 	}
 
@@ -66,28 +95,32 @@ func Write(ctx context.Context, client *http.Client, cfg destinationConfig.Confi
 	return nil
 }
 
-func jsonParseRecord(buffer []sdk.Record) ([]byte, error) {
-	output := model.ZdTickets{
-		Tickets: make([]model.Ticket, 0),
+func (w *Writer) Stop(_ context.Context) {
+	w.client = nil
+}
+
+func jsonParseRecord(records []sdk.Record) ([]byte, error) {
+	output := model.CreateManyRequest{
+		Tickets: make([]model.Ticket, 0, len(records)),
 	}
 
-	for _, zdTicket := range buffer {
-		var importTickets model.Ticket
-		err := json.Unmarshal(zdTicket.Payload.Bytes(), &importTickets)
+	for _, record := range records {
+		var ticket model.Ticket
+		err := json.Unmarshal(record.Payload.Bytes(), &ticket)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("error unmarshaling the payload into ticket type: %w", err)
 		}
-		output.Tickets = append(output.Tickets, importTickets)
+		output.Tickets = append(output.Tickets, ticket)
 	}
 
 	m, err := json.Marshal(output)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marshaling the ticket list: %w", err)
 	}
 	return m, nil
 }
 
-func basicAuth(username, token string) string {
-	auth := username + "/token:" + token
+func (w *Writer) basicAuthToken() string {
+	auth := "Basic " + w.userName + "/token:" + w.apiToken
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
