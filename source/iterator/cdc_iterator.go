@@ -163,7 +163,7 @@ func (c *CDCIterator) fetchRecords(ctx context.Context) ([]sdk.Record, error) {
 	// Validation for httpStatusCode 429 - Too many Requests, Retry value after `93s`
 	if resp.StatusCode == http.StatusTooManyRequests {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
-		retryValue, err := strconv.ParseInt(resp.Header.Get("Retry_After"), 10, 64)
+		retryValue, err := strconv.ParseInt(resp.Header.Get("Retry-After"), 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get retry value: %w", err)
 		}

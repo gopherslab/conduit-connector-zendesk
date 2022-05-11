@@ -72,7 +72,7 @@ func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.
 	}
 
 	if len(r.Payload.Bytes()) == 0 {
-		return nil
+		return d.err
 	}
 
 	d.mux.Lock()
@@ -112,6 +112,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 func (d *Destination) Teardown(ctx context.Context) error {
 	d.mux.Lock()
 	defer d.mux.Unlock()
+	d.Flush(ctx)
 	d.writer.Stop(ctx)
 	d.writer = nil
 	return nil

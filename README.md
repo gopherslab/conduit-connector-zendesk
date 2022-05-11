@@ -11,7 +11,7 @@ The CDC mode for the source connector is constructed based on the incremental ex
 Incremental Export API of Zendesk used to get items that are created or changed since the last request.
 The maximum request for the Incremental API endpoint is restricted to 10 request per minute.
 
-The `rate_limit_error` handled by Zendesk by throwing `http_response_code` 429 and `Retry_After` is set to 93seconds.
+The `rate_limit_error` handled by Zendesk by throwing `http_response_code` 429 and `Retry-After` is set to 93seconds.
 
 ### Pagination
 Cursor based incremental exports
@@ -53,6 +53,10 @@ Common JSON attribute added to the response
 
 ##### NOTE: `pollingPeriod` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
 
+# Limitations
+- IncrementalExport will take maximum 10 API request per minute
+- `per_page` is a optional parameter for default per page result. default is set to 1000
+
 ## Destination
 The destination Zendesk connector will connect to the api using `zendesk.domain`, `zendesk.username`,`zendesk.apitoken`. Communicate to the `Configure` and if succcess, it will pass control to `Open` else throws the error back. Once the zendesk client is initialized. On failing connector is not ready to write it to zendesk.
 
@@ -67,9 +71,6 @@ The source input from server will be written in the `buffer`, size of the buffer
 |`zendesk.apitoken`     | password associated with the username for login                              | true     |         | 
 
 # Limitations
-
-- IncrementalExport will take maximum 10 API request per minute
-- `per_page` is a optional parameter for default per page result. default is set to 1000
 - `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
 - Ticket import can be authorized only by `admins`
 
