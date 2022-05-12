@@ -154,7 +154,7 @@ func TestFetchRecords_RateLimit(t *testing.T) {
 
 func TestFetchRecords_429(t *testing.T) {
 	header := http.Header{}
-	header.Set("Retry_After", "93")
+	header.Set("Retry-After", "93")
 	th := &testHandler{
 		t:          t,
 		url:        &url.URL{Path: "/api/v2/incremental/tickets/cursor.json", RawQuery: "cursor=some_dummy"},
