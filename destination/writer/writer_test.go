@@ -42,7 +42,6 @@ type testHandler struct {
 }
 
 func TestNewWriter(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		config  destinationConfig.Config
@@ -171,7 +170,6 @@ func TestWrite_429(t *testing.T) {
 	err := writer.Write(ctx, inputRecords)
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, writer.nextRun.Unix(), time.Now().Add(90*time.Second).Unix())
-
 }
 
 func TestWrite_500(t *testing.T) {
@@ -205,5 +203,4 @@ func TestWrite_500(t *testing.T) {
 	ctx := context.Background()
 	err := writer.Write(ctx, inputRecords)
 	assert.EqualError(t, err, "non 200 status code received(500)")
-
 }
