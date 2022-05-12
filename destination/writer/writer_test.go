@@ -49,7 +49,19 @@ func TestNewWriter(t *testing.T) {
 		isError bool
 	}{
 		{
-			name: "New writer connection",
+			name: "New writer connection with configured buffer size",
+			config: destinationConfig.Config{
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "Test",
+					APIToken: "jgkfdgrjIuU78490",
+				},
+				BufferSize: 10,
+			},
+			isError: false,
+		},
+		{
+			name: "New writer with buffer with max buffersize",
 			config: destinationConfig.Config{
 				Config: config.Config{
 					Domain:   "testlab",
@@ -58,6 +70,18 @@ func TestNewWriter(t *testing.T) {
 				},
 				BufferSize: 100,
 			},
+			isError: false,
+		},
+		{
+			name: "new writer without buffer configuration",
+			config: destinationConfig.Config{
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "Test",
+					APIToken: "jgkfdgrjIuU78490",
+				},
+			},
+			isError: false,
 		},
 	}
 
@@ -118,7 +142,7 @@ func (t *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestWrite_429(t *testing.T) {
 	header := http.Header{}
-	header.Set("Retry_After", "93")
+	header.Set("Retry-After", "93")
 	th := &testHandler{
 		t:          t,
 		url:        &url.URL{Path: "/api/v2/imports/tickets/create_many"},

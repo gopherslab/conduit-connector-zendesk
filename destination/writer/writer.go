@@ -32,11 +32,11 @@ import (
 )
 
 type Writer struct {
-	url      string
-	userName string
-	apiToken string
-	nextRun  time.Time
-	client   *http.Client
+	url      string       // url constructed for import tickets to zendesk
+	userName string       // userName to login as admin to zendesk
+	apiToken string       // token to authenticate the user
+	nextRun  time.Time    // cool period for the client to hit zendesk api
+	client   *http.Client // http client to connect zendesk
 }
 
 func NewWriter(cfg config.Config, client *http.Client) (*Writer, error) {
