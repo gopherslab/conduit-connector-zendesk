@@ -47,8 +47,8 @@ Common JSON attribute added to the response
 | name                  | description                                                                  | required | default |
 | -------               | ---------------------------------------------------------------------------  | -------- | ------- |
 |`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
-|`zendesk.username`     | username is the registered for login                                         | true     |         |
-|`zendesk.apitoken`     | password associated with the username for login                              | true     |         |
+|`zendesk.userName`     | username is the registered for login                                         | true     |         |
+|`zendesk.apiToken`     | password associated with the username for login                              | true     |         |
 |`pollingPeriod`        | pollingPeriod is the frequency of conduit hitting zendesk API- Default is 2m | false    |  "2m"   |
 
 ##### NOTE: `pollingPeriod` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
@@ -58,7 +58,7 @@ Common JSON attribute added to the response
 - `per_page` is a optional parameter for default per page result. default is set to 1000
 
 ## Destination
-The destination Zendesk connector will connect to the api using `zendesk.domain`, `zendesk.username`,`zendesk.apitoken`. Communicate to the `Configure` and if succcess, it will pass control to `Open` else throws the error back. Once the zendesk client is initialized. On failing connector is not ready to write it to zendesk.
+The destination Zendesk connector will connect to the api using `zendesk.domain`, `zendesk.userName`,`zendesk.apiToken`. Communicate to the `Configure` and if succcess, it will pass control to `Open` else throws the error back. Once the zendesk client is initialized. On failing connector is not ready to write it to zendesk.
 
 ### WriteAsync
 The source input from server will be written in the `buffer`, size of the buffer is specified in the configuration. Once the buffer if full it write the record to zendesk bulk import api `create_many`. Each object from tickets array is unmarshalled and made comptabile to write it to destination zendesk.
@@ -67,8 +67,8 @@ The source input from server will be written in the `buffer`, size of the buffer
 | name                  | description                                                                  | required | default |
 | -------               | ---------------------------------------------------------------------------  | -------- | ------- |
 |`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
-|`zendesk.username`     | username is the registered for login                                         | true     |         |
-|`zendesk.apitoken`     | password associated with the username for login                              | true     |         | 
+|`zendesk.userName`     | username is the registered for login                                         | true     |         |
+|`zendesk.apiToken`     | password associated with the username for login                              | true     |         | 
 
 # Limitations
 - `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
