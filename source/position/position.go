@@ -43,7 +43,7 @@ func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	var err error
 
 	if len(p) == 0 {
-		return TicketPosition{}, err
+		return TicketPosition{}, fmt.Errorf("ticket position is empty :%w", err)
 	}
 
 	var tp TicketPosition
