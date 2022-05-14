@@ -39,6 +39,7 @@ type Writer struct {
 	client   *http.Client // http client to connect zendesk
 }
 
+// NewWriter initialize writer to import ticket
 func NewWriter(cfg config.Config, client *http.Client) (*Writer, error) {
 	return &Writer{
 		url:      fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", cfg.Domain),
@@ -49,6 +50,7 @@ func NewWriter(cfg config.Config, client *http.Client) (*Writer, error) {
 	}, nil
 }
 
+// Write buffer data to zendesk
 func (w *Writer) Write(ctx context.Context, records []sdk.Record) error {
 	if w.nextRun.After(time.Now()) {
 		return nil

@@ -26,16 +26,17 @@ import (
 const (
 	KeyPollingPeriod = "pollingPeriod"
 
-	// maxBufferSize determines maximum buffer size a config can accept.
-	// When config with bigger buffer size is parsed, an error is returned.
+	// KeyPollingPeriod determines polling time from config, if it empty or if config not provided.
+	// then the defaultPollingPeriod taken as 2 minutes.
 	defaultPollingPeriod = "2m"
 )
 
 type Config struct {
 	config.Config
-	PollingPeriod time.Duration
+	PollingPeriod time.Duration // time interval for next zendesk api hit
 }
 
+// Parse validate zendesk config and pollingPeriod
 func Parse(cfg map[string]string) (Config, error) {
 	defaultConfig, err := config.Parse(cfg)
 	if err != nil {

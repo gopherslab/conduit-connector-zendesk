@@ -37,6 +37,7 @@ type Config struct {
 	BufferSize uint64
 }
 
+// Parse validate config and configurable bufferSize
 func Parse(cfg map[string]string) (Config, error) {
 	defaultConfig, err := config.Parse(cfg)
 	if err != nil {

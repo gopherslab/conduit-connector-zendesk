@@ -43,6 +43,7 @@ func NewSource() sdk.Source {
 	return &Source{}
 }
 
+// Configure parses zendsesk config
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 	zendeskConfig, err := config.Parse(cfg)
 	if err != nil {
@@ -52,6 +53,7 @@ func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
 	return nil
 }
 
+// Open prepare the plugin to start sending records from the given position
 func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 	ticketPos, err := position.ParsePosition(rp)
 	if err != nil {
@@ -65,6 +67,7 @@ func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 	return nil
 }
 
+// Read gets the next object from the zendesk api
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 	if !s.iterator.HasNext(ctx) {
 		return sdk.Record{}, sdk.ErrBackoffRetry

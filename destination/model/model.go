@@ -22,6 +22,7 @@ type CreateManyRequest struct {
 	Tickets []Ticket `json:"tickets"`
 }
 
+// Zendesk Ticket parameters
 type Ticket struct {
 	ID                  int           `json:"id"`
 	ExternalID          interface{}   `json:"external_id"`

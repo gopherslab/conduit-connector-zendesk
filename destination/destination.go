@@ -66,6 +66,9 @@ func (d *Destination) Open(ctx context.Context) error {
 	return nil
 }
 
+// WriteAsync writes a record into a Destination. Typically Destination maintains an in-memory
+// buffer and doesn't actually perform a write until the buffer has enough
+// records in it. maxBufferSize is 100
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
 	if d.err != nil {
 		return d.err
@@ -99,6 +102,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 		return err
 	}
 
+	// call all the written records' ackFunctions
 	for _, ack := range d.ackFuncCache {
 		err := ack(d.err)
 		if err != nil {
@@ -109,6 +113,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 	return nil
 }
 
+// Teardown gracefully disconnects the client
 func (d *Destination) Teardown(ctx context.Context) error {
 	d.mux.Lock()
 	defer d.mux.Unlock()

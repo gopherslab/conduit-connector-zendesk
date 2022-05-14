@@ -32,6 +32,7 @@ type Config struct {
 	APIToken string
 }
 
+// Parse validate zendesk basic token authentication
 func Parse(cfg map[string]string) (Config, error) {
 	userDomain, ok := cfg[KeyDomain]
 	if !ok {

@@ -34,25 +34,26 @@ import (
 )
 
 type CDCIterator struct {
-	client           *http.Client
-	userName         string
-	apiToken         string
-	afterURL         string
-	nextRun          time.Time
-	lastModifiedTime time.Time
-	tomb             *tomb.Tomb
-	ticker           *time.Ticker
-	caches           chan []sdk.Record
-	buffer           chan sdk.Record
-	baseURL          string
+	client           *http.Client      // new http client
+	userName         string            // zendesk username
+	apiToken         string            //zendesk apiToken
+	afterURL         string            // index url for nextfetch of tickets
+	nextRun          time.Time         // configurable polling period to hit zendesk api
+	lastModifiedTime time.Time         // ticket last updated time
+	tomb             *tomb.Tomb        // new tomb
+	ticker           *time.Ticker      // records time interval for next iteration
+	caches           chan []sdk.Record // cache to store array of tickets
+	buffer           chan sdk.Record   // buffer to store individual ticket object
+	baseURL          string            // zendesk api url
 }
 
 type response struct {
-	AfterURL    *string                  `json:"after_url"`
-	EndOfStream bool                     `json:"end_of_stream"`
-	TicketList  []map[string]interface{} `json:"tickets"`
+	AfterURL    *string                  `json:"after_url"`     // index for to fetch next list of tickets
+	EndOfStream bool                     `json:"end_of_stream"` // boolean to indicate end of ticket fetch
+	TicketList  []map[string]interface{} `json:"tickets"`       // stores list of tickets
 }
 
+// NewCDCIterator will initialize CDCIterator parameters and also initialize goroutine to fetch records from server
 func NewCDCIterator(ctx context.Context, config config.Config, tp position.TicketPosition) (*CDCIterator, error) {
 	tmbWithCtx, ctx := tomb.WithContext(ctx)
 	lastModified := tp.LastModified
@@ -77,10 +78,12 @@ func NewCDCIterator(ctx context.Context, config config.Config, tp position.Ticke
 	return cdc, nil
 }
 
+// HasNext return true when buffer is not empty
 func (c *CDCIterator) HasNext(_ context.Context) bool {
 	return len(c.buffer) > 0 || !c.tomb.Alive() // return true in case of go routines dying, error will be returned by Next
 }
 
+// Next will check the case whether to push data into buffer
 func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	select {
 	case rec := <-c.buffer:
@@ -92,6 +95,7 @@ func (c *CDCIterator) Next(ctx context.Context) (sdk.Record, error) {
 	}
 }
 
+// startCDC fetches records and set next position with lastmodified time of the ticket
 func (c *CDCIterator) startCDC(ctx context.Context) func() error {
 	return func() error {
 		defer close(c.caches)
@@ -136,6 +140,7 @@ func (c *CDCIterator) flush() error {
 	}
 }
 
+// fetchRecords will export tickets from zendesk api, initial random start_time is set to 0
 func (c *CDCIterator) fetchRecords(ctx context.Context) ([]sdk.Record, error) {
 	if c.nextRun.After(time.Now()) {
 		return nil, nil

@@ -70,6 +70,9 @@ The source input from server will be written in the `buffer`, size of the buffer
 |`zendesk.userName`     | username is the registered for login                                         | true     |         |
 |`zendesk.apiToken`     | password associated with the username for login                              | true     |         | 
 
+# Generating API token in Zendesk
+- https://support.zendesk.com/hc/en-us/articles/4408889192858-Generating-a-new-API-token#topic_bsw_lfg_mmb
+
 # Limitations
 - `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
 - Ticket import can be authorized only by `admins`

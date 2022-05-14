@@ -39,6 +39,7 @@ func (pos *TicketPosition) ToRecordPosition() sdk.Position {
 	return res
 }
 
+// ParsePosition will unmarshal the TicketPosition used to record the next position
 func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	var err error
 
