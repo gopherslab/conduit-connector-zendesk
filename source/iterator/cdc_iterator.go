@@ -36,7 +36,7 @@ import (
 type CDCIterator struct {
 	client           *http.Client      // new http client
 	userName         string            // zendesk username
-	apiToken         string            //zendesk apiToken
+	apiToken         string            // zendesk apiToken
 	afterURL         string            // index url for nextfetch of tickets
 	nextRun          time.Time         // configurable polling period to hit zendesk api
 	lastModifiedTime time.Time         // ticket last updated time
