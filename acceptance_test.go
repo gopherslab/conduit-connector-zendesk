@@ -41,7 +41,6 @@ func init() {
 	records = inputRecords
 	pos = []byte(`{"LastModified":"2022-05-08T02:48:21Z","ID":1}`)
 	ctx = context.Background()
-
 }
 
 func TestAcceptance(t *testing.T) {
@@ -80,5 +79,4 @@ func TestAcceptance(t *testing.T) {
 	sdk.AcceptanceTest(t, sdk.ConfigurableAcceptanceTestDriver{
 		Config: inputConfig,
 	})
-
 }
