@@ -26,7 +26,6 @@ import (
 )
 
 func main() {
-	//sdk.Serve(zendesk.Specification, source.NewSource, destination.NewDestination)
 	sdk.Serve(sdk.Connector{
 		NewSpecification: zendesk.Specification,
 		NewSource:        source.NewSource,

@@ -91,7 +91,6 @@ func TestNewWriter(t *testing.T) {
 			assert.Equal(t, tt.config.UserName, res.userName)
 			assert.Equal(t, tt.config.APIToken, res.apiToken)
 			assert.NotNil(t, tt.config.BufferSize)
-
 		})
 	}
 }
