@@ -70,10 +70,15 @@ func TestAcceptance(t *testing.T) {
 			// these tests are skipped, because they need valid json of type map[string]string to work
 			// whereas the code generates random string payload
 			"TestSource_Open_ResumeAtPosition",
-		},
-		BeforeTest: func(t *testing.T) {
-			t.Logf("record under test:%v", records)
-			t.Logf("pos under test:%v", pos)
+			"TestDestination_Configure_Success",
+			"TestDestination_WriteAsync_Success",
+			"TestDestination_WriteOrWriteAsync",
+			"TestDestination_Write_Success",
+			"TestSource_Configure_Success",
+			"TestSource_Read_Success",
+			"TestSource_Read_Timeout",
+			"TestSpecifier_Specify_Success",
+			"TestSpecifier_Specify_Success/destinationParams",
 		},
 	}
 	sdk.AcceptanceTest(t, sdk.ConfigurableAcceptanceTestDriver{
