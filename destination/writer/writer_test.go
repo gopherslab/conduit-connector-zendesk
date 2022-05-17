@@ -86,15 +86,12 @@ func TestNewWriter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := NewWriter(tt.config, &http.Client{})
-			if tt.isError {
-				assert.NotNil(t, err)
-			} else {
-				assert.NotNil(t, res)
-				assert.Equal(t, tt.config.UserName, res.userName)
-				assert.Equal(t, tt.config.APIToken, res.apiToken)
-				assert.NotNil(t, tt.config.BufferSize)
-			}
+			res := NewWriter(tt.config, &http.Client{})
+			assert.NotNil(t, res)
+			assert.Equal(t, tt.config.UserName, res.userName)
+			assert.Equal(t, tt.config.APIToken, res.apiToken)
+			assert.NotNil(t, tt.config.BufferSize)
+
 		})
 	}
 }

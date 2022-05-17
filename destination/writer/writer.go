@@ -40,14 +40,14 @@ type Writer struct {
 }
 
 // NewWriter initialize writer to import ticket
-func NewWriter(cfg config.Config, client *http.Client) (*Writer, error) {
+func NewWriter(cfg config.Config, client *http.Client) *Writer {
 	return &Writer{
 		url:      fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", cfg.Domain),
 		nextRun:  time.Time{},
 		client:   client,
 		userName: cfg.UserName,
 		apiToken: cfg.APIToken,
-	}, nil
+	}
 }
 
 // Write buffer data to zendesk

@@ -61,7 +61,7 @@ func (d *Destination) Open(ctx context.Context) error {
 	d.mux = &sync.Mutex{}
 	d.buffer = make([]sdk.Record, 0, d.cfg.BufferSize)
 	d.ackFuncCache = make([]sdk.AckFunc, 0, d.cfg.BufferSize)
-	d.writer, d.err = writer.NewWriter(d.cfg, &http.Client{})
+	d.writer = writer.NewWriter(d.cfg, &http.Client{})
 
 	return nil
 }
@@ -70,10 +70,6 @@ func (d *Destination) Open(ctx context.Context) error {
 // buffer and doesn't actually perform a write until the buffer has enough
 // records in it. maxBufferSize is 100
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
-	if d.err != nil {
-		return d.err
-	}
-
 	if len(r.Payload.Bytes()) == 0 {
 		return d.err
 	}
@@ -115,10 +111,12 @@ func (d *Destination) Flush(ctx context.Context) error {
 
 // Teardown gracefully disconnects the client
 func (d *Destination) Teardown(ctx context.Context) error {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-	d.Flush(ctx)
-	d.writer.Stop(ctx)
+	if d.writer != nil {
+		d.mux.Lock()
+		defer d.mux.Unlock()
+		d.Flush(ctx)
+		d.writer.Stop(ctx)
+	}
 	d.writer = nil
 	return nil
 }
