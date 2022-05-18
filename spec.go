@@ -18,6 +18,7 @@ package zendesk
 
 import (
 	"github.com/conduitio/conduit-connector-zendesk/config"
+	destinationConfig "github.com/conduitio/conduit-connector-zendesk/destination/config"
 	sourceConfig "github.com/conduitio/conduit-connector-zendesk/source/config"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -25,10 +26,11 @@ import (
 
 func Specification() sdk.Specification {
 	return sdk.Specification{
-		Name:    "zendesk",
-		Summary: "An zendesk source and destination plugin for Conduit, written in Go",
-		Version: "v0.1.0",
-		Author:  "Meroxa,Inc.",
+		Name:        "zendesk",
+		Summary:     "Zendesk conduit plugin",
+		Description: "A zendesk source and destination plugin for Conduit",
+		Version:     "v0.1.0",
+		Author:      "Gophers Lab Technologies Pvt Ltd",
 		SourceParams: map[string]sdk.Parameter{
 			config.KeyDomain: {
 				Default:     "",
@@ -51,6 +53,27 @@ func Specification() sdk.Specification {
 				Description: "Fetch interval for consecutive iterations",
 			},
 		},
-		DestinationParams: map[string]sdk.Parameter{},
+		DestinationParams: map[string]sdk.Parameter{
+			config.KeyDomain: {
+				Default:     "",
+				Required:    true,
+				Description: "A domain is referred as the organization name to which zendesk is registered",
+			},
+			config.KeyUserName: {
+				Default:     "",
+				Required:    true,
+				Description: "Login to zendesk performed using username",
+			},
+			config.KeyAPIToken: {
+				Default:     "",
+				Required:    true,
+				Description: "password to login",
+			},
+			destinationConfig.KeyBufferSize: {
+				Default:     "100",
+				Required:    false,
+				Description: "max tickets to be created in one API call",
+			},
+		},
 	}
 }

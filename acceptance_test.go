@@ -58,7 +58,7 @@ func TestAcceptance(t *testing.T) {
 	}
 
 	inputConfig := sdk.ConfigurableAcceptanceTestDriverConfig{
-		Connector: sdk.Connector{ // Note that this variable should rather be created globally in `connector.go`
+		Connector: sdk.Connector{
 			NewSpecification: Specification,
 			NewSource:        source.NewSource,
 			NewDestination:   destination.NewDestination,
@@ -67,18 +67,14 @@ func TestAcceptance(t *testing.T) {
 		DestinationConfig: destinationConfig,
 		GoleakOptions:     []goleak.Option{goleak.IgnoreCurrent()},
 		Skip: []string{
-			// these tests are skipped, because they need valid json of type map[string]string to work
-			// whereas the code generates random string payload
+			// these tests are skipped, because they need a valid apiToken and empty zendesk to run properly
+			// TODO: implement dummy http client to execute these with dummy data
 			"TestSource_Open_ResumeAtPosition",
-			"TestDestination_Configure_Success",
 			"TestDestination_WriteAsync_Success",
 			"TestDestination_WriteOrWriteAsync",
 			"TestDestination_Write_Success",
-			"TestSource_Configure_Success",
 			"TestSource_Read_Success",
 			"TestSource_Read_Timeout",
-			"TestSpecifier_Specify_Success",
-			"TestSpecifier_Specify_Success/destinationParams",
 		},
 	}
 	sdk.AcceptanceTest(t, sdk.ConfigurableAcceptanceTestDriver{
