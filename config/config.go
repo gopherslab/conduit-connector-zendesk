@@ -34,18 +34,18 @@ type Config struct {
 
 // Parse validate zendesk basic token authentication
 func Parse(cfg map[string]string) (Config, error) {
-	userDomain, ok := cfg[KeyDomain]
-	if !ok {
+	userDomain := cfg[KeyDomain]
+	if userDomain == "" {
 		return Config{}, requiredConfigErr(KeyDomain)
 	}
 
-	userName, ok := cfg[KeyUserName]
-	if !ok {
+	userName := cfg[KeyUserName]
+	if userName == "" {
 		return Config{}, requiredConfigErr(KeyUserName)
 	}
 
-	userAPIToken, ok := cfg[KeyAPIToken]
-	if !ok {
+	userAPIToken := cfg[KeyAPIToken]
+	if userAPIToken == "" {
 		return Config{}, requiredConfigErr(KeyAPIToken)
 	}
 

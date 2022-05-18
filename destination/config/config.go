@@ -44,8 +44,8 @@ func Parse(cfg map[string]string) (Config, error) {
 		return Config{}, err
 	}
 
-	bufferSizeString, exists := cfg[KeyBufferSize]
-	if !exists || bufferSizeString == "" {
+	bufferSizeString := cfg[KeyBufferSize]
+	if bufferSizeString == "" {
 		bufferSizeString = fmt.Sprintf("%d", maxBufferSize)
 	}
 
