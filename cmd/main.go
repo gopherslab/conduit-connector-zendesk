@@ -18,12 +18,14 @@ package main
 
 import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	zendesk "github.com/conduitio/conduit-connector-zendesk"
+	"github.com/conduitio/conduit-connector-zendesk/source"
 )
 
 func main() {
 	sdk.Serve(sdk.Connector{
-		NewSpecification: nil,
-		NewSource:        nil,
+		NewSpecification: zendesk.Specification,
+		NewSource:        source.NewSource,
 		NewDestination:   nil,
 	})
 }
