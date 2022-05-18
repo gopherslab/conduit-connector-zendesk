@@ -17,18 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"github.com/conduitio/conduit-connector-zendesk/destination"
-	source "github.com/conduitio/conduit-connector-zendesk/source"
-
-	zendesk "github.com/conduitio/conduit-connector-zendesk"
-
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 func main() {
 	sdk.Serve(sdk.Connector{
-		NewSpecification: zendesk.Specification,
-		NewSource:        source.NewSource,
-		NewDestination:   destination.NewDestination,
+		NewSpecification: nil,
+		NewSource:        nil,
+		NewDestination:   nil,
 	})
 }
