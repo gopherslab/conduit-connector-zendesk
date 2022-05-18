@@ -76,6 +76,7 @@ The source input from server will be written in the `buffer`, size of the buffer
 # Limitations
 - `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
 - Ticket import can be authorized only by `admins`
+- Import for zendesk is scoped with tickets only
 
 # References
 
