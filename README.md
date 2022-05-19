@@ -39,13 +39,13 @@ The maximum request for the Incremental API endpoint is restricted to 10 request
 
 #### Cursor based Pagination format 
 
-|   name            |   Type        |  Comment                                                                        |
-|----------------     -------------   --------------------------------------------------------------------------------
-| `after_url`       |   string      |  URL to fetch the next page of results
-| `after_cursor`    |   string      |  Cursor to fetch the next page of results
-| `before_url`      |   string      |  URL to fetch the previous page of results. If no previous page, value is null
-| `before_cursor`   |   string      |  Cursor to fetch the previous page of results. If no previous page, value is null   
-
+| name                  | format   | description
+| -------               | -------  | -------------------------------------------------------------------------------
+|`after_url`            | string   | URL to fetch the next page of results
+|`after_cursor`         | string   | Cursor to fetch the next page of results 
+|`before_url`           | string   | URL to fetch the previous page of results. If no previous page, value is null   
+|`before_cursor`        | string   | Cursor to fetch the previous page of results. If no previous page, value is null   
+ 
 NOTE: Pagination limit is determined by `after_cursor` given by zendesk, refer https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/#cursor-based-pagination-json-format 
 
 Common JSON attribute added to the response
