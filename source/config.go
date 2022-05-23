@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package source
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ const (
 
 	// KeyPollingPeriod determines polling time from config, if it empty or if config not provided.
 	// then the defaultPollingPeriod taken as 2 minutes.
-	defaultPollingPeriod = "2m"
+	defaultPollingPeriod = "6s"
 )
 
 type Config struct {

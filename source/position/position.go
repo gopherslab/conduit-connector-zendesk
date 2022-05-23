@@ -25,8 +25,8 @@ import (
 )
 
 type TicketPosition struct {
-	LastModified time.Time
-	ID           float64 // two tickets can have the same update time, id is to keep the position unique across tickets
+	LastModified time.Time `json:"last_modified_time"`
+	ID           float64   `json:"id"` // two tickets can have the same update time, id is to keep the position unique across tickets
 }
 
 // ToRecordPosition will extract the after_url from the ticket result json

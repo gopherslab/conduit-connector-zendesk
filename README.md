@@ -1,86 +1,79 @@
 # Conduit Connector Zendesk
 
-## Source
+### General
 
-The Zendesk connector will connect to the Zendesk API through the `url` constructed and start fetching the record until `end_of_stream` is true. 
+The Zendesk connector is one of [Conduit](https://github.com/ConduitIO/conduit) custom plugins. It provides both, a source
+and a destination zendesk connectors.
 
-The CDC mode for the source connector is constructed based on the incremental export flow of Zendesk. 
+### How to build it
 
-### Incremental Flow Zendesk
+Run `make`.
 
-Incremental Export API of Zendesk used to get items that are created or changed since the last request.
-The maximum request for the Incremental API endpoint is restricted to 10 request per minute.
+### Testing
 
-The `rate_limit_error` handled by Zendesk by throwing `http_response_code` 429 and `Retry-After` is set to 93seconds.
+Run `make test` to run all the tests.
 
-### Pagination
-Cursor based incremental exports
+## Zendesk Source
 
-Cursor based Pagination format
+The Zendesk client connector will connect with Zendesk API through the `url` constructed using subdomain specific to individual organization. Upon successful configuration with `zendesk.userName ` and `zendesk.apiToken` the tickets from the given domain is fetched using cursor based [incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) provided by zendesk. The cursor is initiated with start_time set to `0` or the time set in `position` of last successfully ack'd record and all subsequent iterations are done using `next_url` returned by the zendesk till the pipeline is paused. On resuming of the pipeline updated_at time of the last fetched ticket is used to restart the cursor.
 
-|   name          |   Type    |  Comment                |
-|-------------------------------------------------------------------------------------------------------------------
-| `after_url`     |   string  |  URL to fetch the next page of results
-| `after_cursor`  |   string  |  Cursor to fetch the next page of results
-| `before_url`    |   string  |  URL to fetch the previous page of results. If no previous page, value is null
-| `before_cursor` |   string  |  Cursor to fetch the previous page of results. If no previous page, value is null      
+### Generating API token in Zendesk
+The api token for the zendesk can be created through zendesk portal by logging in as admin. Refer the zendesk [documentation](https://support.zendesk.com/hc/en-us/articles/4408889192858-Generating-a-new-API-token#topic_bsw_lfg_mmb) for step-by-step setup.
+
+### Change Data Capture (CDC)
+The connector uses the zendesk [cursor based incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) to listen iterate over tickets changed after the given `start_time`. 
+We initiate a `cursor` at the start of the pipeline using the `start_time` as 0, which means we start fetching all the tickets from the start. The subsequent data is fetched using the `after_url` received as part of response.
+When the pipeline resumed after pause/crash, we use the position of the last successfully read record to restart the cursor using the last_modified_time data from position as the start_time.  
 
 
-Common JSON attribute added to the response
+#### Position Handling
 
-``` json
+The connector uses the combination of `last_modified_time` time and `id` to uniquely identify the records.
+`last_modified_time`: The `updated_at` time of last successfully read ticket is used. In case the `updated_at` time is empty, 
+the `created_at` time of the last ticket is used.
+`id`: This is the ticket id associated with the ticket, received from zendesk.
+
+The `last_modified_time` is used as `start_time` query param for restarting the cursor based incremental export.  
+
+Sample position:
+```json
 {
-    "end_of_stream": true
+  "last_modified_time": "2006-01-02T15:04:05Z07:00",
+  "id": 12345
 }
 ```
-### Initial Cursor Request 
 
-- https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?start_time=1532034771 
+### Record Keys
 
-`start_time` is arbitary time used only once in the cursor based exports. Subsequent pages and exports handled by `after_cursor`
+The `id` of the ticket is used as the unique key for the record.
 
-`after_url` - Position in sdk.Record to fetch if the pipeline is paused or `end_of_stream` is false
-- https://testlab.zendesk.com/api/v2/incremental/tickets/cursor.json?cursor=MTY1MDI3NzcyMS4wfHwxNXw%3D"
+Sample Record:
+```json
+{
+  "position": {
+    "last_modified_time": "2006-01-02T15:04:05Z07:00",
+    "id": 12345
+  },
+  "metadata": null,
+  "created_at": "2006-01-02T15:04:05Z07:00",
+  "key": "12345",
+  "payload": "<ticket json received from zendesk>"
+}
+```
 
-### Configuration
+### Configuration - Source
 
 | name                  | description                                                                  | required | default |
-| -------               | ---------------------------------------------------------------------------  | -------- | ------- |
+| -------               |------------------------------------------------------------------------------| -------- |---------|
 |`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
 |`zendesk.userName`     | username is the registered for login                                         | true     |         |
 |`zendesk.apiToken`     | password associated with the username for login                              | true     |         |
-|`pollingPeriod`        | pollingPeriod is the frequency of conduit hitting zendesk API- Default is 2m | false    |  "2m"   |
+|`pollingPeriod`        | pollingPeriod is the frequency of conduit hitting zendesk API- Default is 6s | false    | "6s"    |
 
-##### NOTE: `pollingPeriod` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
+**NOTE:** `pollingPeriod` will be in time.Duration - `2ns`,`2ms`,`2s`,`2m`,`2h`
 
-# Limitations
-- IncrementalExport will take maximum 10 API request per minute
-- `per_page` is a optional parameter for default per page result. default is set to 1000
+### Known Limitations
 
-## Destination
-The destination Zendesk connector will connect to the api using `zendesk.domain`, `zendesk.userName`,`zendesk.apiToken`. Communicate to the `Configure` and if succcess, it will pass control to `Open` else throws the error back. Once the zendesk client is initialized. On failing connector is not ready to write it to zendesk.
-
-### WriteAsync
-The source input from server will be written in the `buffer`, size of the buffer is specified in the configuration. Once the buffer if full it write the record to zendesk bulk import api `create_many`. Each object from tickets array is unmarshalled and made comptabile to write it to destination zendesk.
-
-### Configuration
-| name                  | description                                                                  | required | default |
-| -------               | ---------------------------------------------------------------------------  | -------- | ------- |
-|`zendesk.domain`       | domain is the registered by organization to zendesk                          | true     |         |
-|`zendesk.userName`     | username is the registered for login                                         | true     |         |
-|`zendesk.apiToken`     | password associated with the username for login                              | true     |         | 
-
-# Generating API token in Zendesk
-- https://support.zendesk.com/hc/en-us/articles/4408889192858-Generating-a-new-API-token#topic_bsw_lfg_mmb
-
-# Limitations
-- `bufferSize` is set to 100, as bulk import moves 100 tickets max in one request
-- Ticket import can be authorized only by `admins`
-- Import for zendesk is scoped with tickets only
-
-# References
-
-- https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-apibest-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
-- https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/#cursor-based-pagination-json-format
-- https://developer.zendesk.com/documentation/ticketing/managing-tickets/using-the-incremental-export-api/#cursor-based-incremental-exports
-- https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import
+* The zendesk API has a rate limit of 10 requests per minute. If rate limit is exceeded, zendesk sends 429 status code with Cool off duration in `Retry-After` header.
+We use this duration to skip hitting the zendesk APIs repeatedly.
+* Currently, the connector only supports ticket data fetching. Other type of data fetching will be part of subsequent phases.
