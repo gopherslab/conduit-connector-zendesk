@@ -13,10 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package config
+package source
 
 import (
 	"testing"
+	"time"
 
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +39,7 @@ func TestParse(t *testing.T) {
 				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want: Config{
-				PollingPeriod: 300000000000,
+				PollingPeriod: time.Minute * 5,
 				Config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",
@@ -56,7 +57,7 @@ func TestParse(t *testing.T) {
 				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want: Config{
-				PollingPeriod: 120000000000,
+				PollingPeriod: time.Second * 6,
 				Config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",
@@ -73,7 +74,7 @@ func TestParse(t *testing.T) {
 				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			want: Config{
-				PollingPeriod: 120000000000,
+				PollingPeriod: time.Second * 6,
 				Config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",

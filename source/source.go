@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/conduitio/conduit-connector-zendesk/source/config"
 	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
 	"github.com/conduitio/conduit-connector-zendesk/source/position"
 
@@ -29,7 +28,7 @@ import (
 
 type Source struct {
 	sdk.UnimplementedSource
-	config   config.Config
+	config   Config
 	iterator Iterator
 }
 
@@ -43,9 +42,9 @@ func NewSource() sdk.Source {
 	return &Source{}
 }
 
-// Configure parses zendsesk config
+// Configure parses zendesk config
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
-	zendeskConfig, err := config.Parse(cfg)
+	zendeskConfig, err := Parse(cfg)
 	if err != nil {
 		return err
 	}
@@ -60,7 +59,14 @@ func (s *Source) Open(ctx context.Context, rp sdk.Position) error {
 		return err
 	}
 
-	s.iterator, err = iterator.NewCDCIterator(ctx, s.config, ticketPos)
+	s.iterator, err = iterator.NewCDCIterator(
+		ctx,
+		s.config.UserName,
+		s.config.APIToken,
+		s.config.Domain,
+		s.config.PollingPeriod,
+		ticketPos,
+	)
 	if err != nil {
 		return err
 	}
@@ -81,7 +87,7 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 }
 
 func (s *Source) Teardown(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("shutting down zendesk client")
+	sdk.Logger(ctx).Trace().Msg("shutting down zendesk client")
 	if s.iterator != nil {
 		s.iterator.Stop()
 		s.iterator = nil
@@ -94,7 +100,7 @@ func (s *Source) Ack(ctx context.Context, pos sdk.Position) error {
 	if err != nil {
 		return fmt.Errorf("invalid position: %w", err)
 	}
-	sdk.Logger(ctx).Info().
+	sdk.Logger(ctx).Trace().
 		Float64("id", ticketPos.ID).
 		Time("update_time", ticketPos.LastModified).
 		Msg("ack received")

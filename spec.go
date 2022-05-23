@@ -17,10 +17,9 @@ limitations under the License.
 package zendesk
 
 import (
-	"github.com/conduitio/conduit-connector-zendesk/config"
-	sourceConfig "github.com/conduitio/conduit-connector-zendesk/source/config"
-
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/source"
 )
 
 func Specification() sdk.Specification {
@@ -46,8 +45,8 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "password to login",
 			},
-			sourceConfig.KeyPollingPeriod: {
-				Default:     "2m",
+			source.KeyPollingPeriod: {
+				Default:     "6s",
 				Required:    false,
 				Description: "Fetch interval for consecutive iterations",
 			},
