@@ -77,3 +77,33 @@ Sample Record:
 * The zendesk API has a rate limit of 10 requests per minute. If rate limit is exceeded, zendesk sends 429 status code with Cool off duration in `Retry-After` header.
 We use this duration to skip hitting the zendesk APIs repeatedly.
 * Currently, the connector only supports ticket data fetching. Other type of data fetching will be part of subsequent phases.
+
+
+## Destination Connector
+The destination connector receives the records from the conduit as individual record object and store it to the buffer as an array of records. Once the maxBufferSize is reached it will push the tickets to zendesk using [bulk import api](https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import). Configuration for zendesk destination api includes `zendesk.domain`, `zendesk.userName`,`zendesk.apiToken`. Once the zendesk client is initialized, it will wait for the buffer to be filled, before writing the data to zendesk destination account.
+In case the rate limit is exceeded, i.e 429 error is received from zendesk, connector blocks for the duration received in `Retry-After` header from zendesk and retries the API call, if the API retry count doesn't exceed the `maxReries`. If unsuccessful even after the retries, the writer returns an error. 
+
+### Configuration - Destination
+| name               | description                                                        | required | default |
+|--------------------|--------------------------------------------------------------------| -------- |---------|
+| `zendesk.domain`   | domain is the registered by organization to zendesk                | true     |         |
+| `zendesk.userName` | username is the registered for login                               | true     |         |
+| `zendesk.apiToken` | password associated with the username for login                    | true     |         |
+| `bufferSize`       | bufferSize stores the ticket objects as array                      | false    | 100     |
+| `maxRetries`       | max API retry attempts, in case of rate-limit exceeded error(429)  | false    | 3       |
+
+### WriteAsync
+The source input from server will be written in the `buffer`, size of the buffer is specified in the configuration. Once the buffer is full it writes the record to zendesk using [bulk import api](https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import) `create_many`. Each object from records array is unmarshalled into Ticket type struct and appended to `CreateManyRequest`.
+When the `Teardown` is called, i.e pipeline is paused or gracefully shutting down, the data in buffer is flushed (written to zendesk), irrespective the number of records in the buffer.
+
+# Limitations
+- Max 100 tickets that can be written in one API call to zendesk 
+- Ticket import can be authorized only by `admins`
+- Currently, only ticket import is supported, other data type import will be added in later phases. 
+
+# References
+
+- https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-apibest-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
+- https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/#cursor-based-pagination-json-format
+- https://developer.zendesk.com/documentation/ticketing/managing-tickets/using-the-incremental-export-api/#cursor-based-incremental-exports
+- https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import

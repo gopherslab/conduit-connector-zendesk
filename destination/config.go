@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package destination
 
 import (
 	"fmt"
@@ -27,14 +27,20 @@ const (
 	// KeyBufferSize is the config name for buffer size.
 	KeyBufferSize = "bufferSize"
 
+	// KeyMaxRetries is the number of times the writer needs to retry, in case of 429 error, before returning an error
+	KeyMaxRetries = "maxRetries"
+
 	// maxBufferSize determines maximum buffer size a config can accept.
 	// When config with bigger buffer size is parsed, an error is returned.
 	maxBufferSize uint64 = 100
+
+	defaultMaxRetries = "3"
 )
 
 type Config struct {
 	config.Config
 	BufferSize uint64
+	MaxRetries uint64
 }
 
 // Parse validate config and configurable bufferSize
@@ -66,9 +72,23 @@ func Parse(cfg map[string]string) (Config, error) {
 		)
 	}
 
+	maxRetriesString := cfg[KeyMaxRetries]
+	if maxRetriesString == "" {
+		maxRetriesString = defaultMaxRetries
+	}
+
+	maxRetries, err := strconv.ParseUint(maxRetriesString, 10, 64)
+	if err != nil {
+		return Config{}, fmt.Errorf(
+			"%q config value should be a positive integer",
+			KeyMaxRetries,
+		)
+	}
+
 	destinationConfig := Config{
 		Config:     defaultConfig,
 		BufferSize: bufferSize,
+		MaxRetries: maxRetries,
 	}
 	return destinationConfig, nil
 }

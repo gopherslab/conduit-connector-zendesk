@@ -18,22 +18,19 @@ package destination
 
 import (
 	"context"
-	"net/http"
 	"sync"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/conduitio/conduit-connector-zendesk/destination/config"
-	"github.com/conduitio/conduit-connector-zendesk/destination/writer"
+	"github.com/conduitio/conduit-connector-zendesk/zendesk"
 )
 
 type Writer interface {
 	Write(ctx context.Context, records []sdk.Record) error
-	Stop(ctx context.Context)
 }
 
 type Destination struct {
 	sdk.UnimplementedDestination
-	cfg          config.Config
+	cfg          Config
 	buffer       []sdk.Record
 	ackFuncCache []sdk.AckFunc
 	err          error
@@ -47,7 +44,7 @@ func NewDestination() sdk.Destination {
 
 // Configure parses and initializes the config.
 func (d *Destination) Configure(ctx context.Context, cfg map[string]string) error {
-	configuration, err := config.Parse(cfg)
+	configuration, err := Parse(cfg)
 	if err != nil {
 		return err
 	}
@@ -61,14 +58,14 @@ func (d *Destination) Open(ctx context.Context) error {
 	d.mux = &sync.Mutex{}
 	d.buffer = make([]sdk.Record, 0, d.cfg.BufferSize)
 	d.ackFuncCache = make([]sdk.AckFunc, 0, d.cfg.BufferSize)
-	d.writer = writer.NewWriter(d.cfg, &http.Client{})
+	d.writer = zendesk.NewBulkImporter(d.cfg.UserName, d.cfg.APIToken, d.cfg.Domain, d.cfg.MaxRetries)
 
 	return nil
 }
 
-// WriteAsync writes a record into a Destination. Typically Destination maintains an in-memory
-// buffer and doesn't actually perform a write until the buffer has enough
-// records in it. maxBufferSize is 100
+// WriteAsync writes a record into a Destination. Destination maintains an in-memory
+// buffer and doesn't actually perform any write until the buffer has enough
+// records in it. The buffer size can be configured using `bufferSize` config.
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
 	if len(r.Payload.Bytes()) == 0 {
 		return d.err
@@ -81,8 +78,7 @@ func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.
 	d.ackFuncCache = append(d.ackFuncCache, ackFunc)
 
 	if len(d.buffer) >= int(d.cfg.BufferSize) {
-		err := d.Flush(ctx)
-		if err != nil {
+		if err := d.Flush(ctx); err != nil {
 			return err
 		}
 	}
@@ -111,12 +107,13 @@ func (d *Destination) Flush(ctx context.Context) error {
 
 // Teardown gracefully disconnects the client
 func (d *Destination) Teardown(ctx context.Context) error {
+	defer func() {
+		d.writer = nil
+	}()
 	if d.writer != nil {
 		d.mux.Lock()
 		defer d.mux.Unlock()
-		d.Flush(ctx)
-		d.writer.Stop(ctx)
+		return d.Flush(ctx)
 	}
-	d.writer = nil
 	return nil
 }

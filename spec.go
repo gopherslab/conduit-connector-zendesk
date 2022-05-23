@@ -17,10 +17,9 @@ limitations under the License.
 package zendesk
 
 import (
-	destinationConfig "github.com/conduitio/conduit-connector-zendesk/destination/config"
-
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/destination"
 	"github.com/conduitio/conduit-connector-zendesk/source"
 )
 
@@ -69,10 +68,15 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "password to login",
 			},
-			destinationConfig.KeyBufferSize: {
+			destination.KeyBufferSize: {
 				Default:     "100",
 				Required:    false,
 				Description: "max tickets to be created in one API call",
+			},
+			destination.KeyMaxRetries: {
+				Default:     "3",
+				Required:    false,
+				Description: "max API retries, before returning an error",
 			},
 		},
 	}

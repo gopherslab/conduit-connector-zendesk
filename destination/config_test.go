@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package config
+package destination
 
 import (
 	"testing"
@@ -36,9 +36,11 @@ func TestParse_Destination(t *testing.T) {
 				config.KeyDomain:   "testlab",
 				config.KeyUserName: "test@testlab.com",
 				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyMaxRetries:      "5",
 			},
 			want: Config{
 				BufferSize: 10,
+				MaxRetries: 5,
 				Config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",
@@ -54,6 +56,7 @@ func TestParse_Destination(t *testing.T) {
 				config.KeyDomain:   "testlab",
 				config.KeyUserName: "test@testlab.com",
 				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyMaxRetries:      "0",
 			},
 			want: Config{
 				BufferSize: 100,
@@ -74,6 +77,7 @@ func TestParse_Destination(t *testing.T) {
 			},
 			want: Config{
 				BufferSize: 100,
+				MaxRetries: 3,
 				Config: config.Config{
 					Domain:   "testlab",
 					UserName: "test@testlab.com",
