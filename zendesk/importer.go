@@ -106,7 +106,7 @@ func NewBulkImporter(userName, apiToken, domain string, maxRetries uint64) *Bulk
 func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 	bufferedTicket, err := parseRecords(records)
 	if err != nil {
-		return nil
+		return fmt.Errorf("unable to parse the records %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -117,7 +117,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 	)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to send to zendesk server %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -125,7 +125,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 
 	resp, err := b.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("could not connect to zendesk client")
+		return fmt.Errorf("unable to fetch response from zendesk server %w", err)
 	}
 
 	defer resp.Body.Close()

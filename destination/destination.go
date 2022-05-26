@@ -30,12 +30,12 @@ type Writer interface {
 
 type Destination struct {
 	sdk.UnimplementedDestination
-	cfg          Config
-	buffer       []sdk.Record
-	ackFuncCache []sdk.AckFunc
+	cfg          Config        // destination specific config for zendesk
+	buffer       []sdk.Record  // buffer stores the list of zendesk ticket from conduit server
+	ackFuncCache []sdk.AckFunc // returns error to conduit if fails else return nil
 	err          error
 	mux          *sync.Mutex
-	writer       Writer
+	writer       Writer // interface that implements to write tickets to zendesk
 }
 
 func NewDestination() sdk.Destination {

@@ -16,6 +16,7 @@ limitations under the License.
 package destination
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/conduitio/conduit-connector-zendesk/config"
@@ -28,6 +29,7 @@ func TestParse_Destination(t *testing.T) {
 		config  map[string]string
 		want    Config
 		isError bool
+		err     error
 	}{
 		{
 			name: "Login with configured buffer size",
@@ -48,6 +50,7 @@ func TestParse_Destination(t *testing.T) {
 				},
 			},
 			isError: false,
+			err:     nil,
 		},
 		{
 			name: "Login without buffer size value",
@@ -67,6 +70,7 @@ func TestParse_Destination(t *testing.T) {
 				},
 			},
 			isError: false,
+			err:     nil,
 		},
 		{
 			name: "Login without buffer size",
@@ -85,6 +89,47 @@ func TestParse_Destination(t *testing.T) {
 				},
 			},
 			isError: false,
+			err:     nil,
+		},
+		{
+			name: "Login with bufferSize greater than maxBufferSize",
+			config: map[string]string{
+				config.KeyDomain:   "testlab",
+				config.KeyUserName: "test@testlab.com",
+				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyBufferSize:      "200",
+			},
+			want: Config{
+				BufferSize: 100,
+				MaxRetries: 3,
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "test@testlab.com",
+					APIToken: "gkdsaj)({jgo43646435#$!ga",
+				},
+			},
+			isError: true,
+			err:     fmt.Errorf("\"bufferSize\" config value should not be bigger than 100, got 200"),
+		},
+		{
+			name: "Login with negative bufferSize",
+			config: map[string]string{
+				config.KeyDomain:   "testlab",
+				config.KeyUserName: "test@testlab.com",
+				config.KeyAPIToken: "gkdsaj)({jgo43646435#$!ga",
+				KeyBufferSize:      "-100",
+			},
+			want: Config{
+				BufferSize: 100,
+				MaxRetries: 3,
+				Config: config.Config{
+					Domain:   "testlab",
+					UserName: "test@testlab.com",
+					APIToken: "gkdsaj)({jgo43646435#$!ga",
+				},
+			},
+			isError: true,
+			err:     fmt.Errorf("\"bufferSize\" config value should be a positive integer"),
 		},
 	}
 	for _, tt := range tests {
@@ -92,6 +137,7 @@ func TestParse_Destination(t *testing.T) {
 			res, err := Parse(tt.config)
 			if tt.isError {
 				assert.NotNil(t, err)
+				assert.EqualError(t, err, tt.err.Error())
 			} else {
 				assert.NotNil(t, res)
 				assert.Equal(t, res, tt.want)
