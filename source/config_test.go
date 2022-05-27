@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Meroxa, Inc.
+Copyright © 2022 Meroxa, Inc. & Gophers Lab Technologies Pvt. Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,10 +25,9 @@ import (
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  map[string]string
-		want    Config
-		isError bool
+		name   string
+		config map[string]string
+		want   Config
 	}{
 		{
 			name: "Login with valid configuration",
@@ -46,7 +45,6 @@ func TestParse(t *testing.T) {
 					APIToken: "gkdsaj)({jgo43646435#$!ga",
 				},
 			},
-			isError: false,
 		},
 		{
 			name: "Login with empty polling period to check default time duration",
@@ -64,7 +62,6 @@ func TestParse(t *testing.T) {
 					APIToken: "gkdsaj)({jgo43646435#$!ga",
 				},
 			},
-			isError: false,
 		},
 		{
 			name: "Login without polling period",
@@ -81,18 +78,13 @@ func TestParse(t *testing.T) {
 					APIToken: "gkdsaj)({jgo43646435#$!ga",
 				},
 			},
-			isError: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := Parse(tt.config)
-			if tt.isError {
-				assert.NotNil(t, err)
-			} else {
-				assert.NotNil(t, res)
-				assert.Equal(t, res, tt.want)
-			}
+			res, _ := Parse(tt.config)
+			assert.NotNil(t, res)
+			assert.Equal(t, res, tt.want)
 		})
 	}
 }

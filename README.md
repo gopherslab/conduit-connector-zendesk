@@ -18,7 +18,7 @@ A new HTTP Zendesk client is created in source and destination, as the scope of 
 
 ## Zendesk Source
 
-The Zendesk client connector will connect with Zendesk API through the `url` constructed using subdomain specific to individual organization. Upon successful configuration with `zendesk.userName ` and `zendesk.apiToken` the tickets from the given domain is fetched using cursor based [incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) provided by zendesk. The cursor is initiated with start_time set to `0` or the time set in `position` of last successfully ack'd record and all subsequent iterations are done using `next_url` returned by the zendesk till the pipeline is paused. On resuming of the pipeline updated_at time of the last fetched ticket is used to restart the cursor.
+The Zendesk client connector will connect with Zendesk API through the `url` constructed using subdomain specific to individual organization. Upon successful configuration with `zendesk.userName ` and `zendesk.apiToken` the tickets from the given domain is fetched using cursor based [incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) provided by zendesk. The cursor is initiated with start_time set to `0` or the time set in `position` of last successfully ack'd record and all subsequent iterations are done using `after_url` returned by the zendesk till the pipeline is paused. On resuming of the pipeline updated_at time of the last fetched ticket is used to restart the cursor.
 
 ### Generating API token in Zendesk
 The api token for the zendesk can be created through zendesk portal by logging in as admin. Refer the zendesk [documentation](https://support.zendesk.com/hc/en-us/articles/4408889192858-Generating-a-new-API-token#topic_bsw_lfg_mmb) for step-by-step setup.
@@ -26,7 +26,7 @@ The api token for the zendesk can be created through zendesk portal by logging i
 ### Change Data Capture (CDC)
 The connector uses the zendesk [cursor based incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) to listen iterate over tickets changed after the given `start_time`. 
 We initiate a `cursor` at the start of the pipeline using the `start_time` as 0, which means we start fetching all the tickets from the start. The subsequent data is fetched using the `after_url` received as part of response.
-When the pipeline resumed after pause/crash, we use the position of the last successfully read record to restart the cursor using the last_modified_time data from position as the start_time.  
+When the pipeline resumed after pause/crash, we use the position of the last successfully read record to restart the cursor using the updated_at data from position as the start_time.  
 
 
 #### Position Handling

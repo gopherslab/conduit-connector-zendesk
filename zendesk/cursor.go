@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Meroxa, Inc.
+Copyright © 2022 Meroxa, Inc. & Gophers Lab Technologies Pvt. Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -154,8 +154,13 @@ func (c *Cursor) toRecords(tickets []map[string]interface{}) ([]sdk.Record, erro
 			lastValidModifiedTime = updatedAt
 		}
 
+		toRecordPosition, err := (&position.TicketPosition{LastModified: updatedAt, ID: id}).ToRecordPosition()
+		if err != nil {
+			return nil, err
+		}
+
 		records = append(records, sdk.Record{
-			Position:  (&position.TicketPosition{LastModified: updatedAt, ID: id}).ToRecordPosition(),
+			Position:  toRecordPosition,
 			Metadata:  nil,
 			CreatedAt: createdAt,
 			Key:       sdk.RawData(fmt.Sprintf("%v", id)),

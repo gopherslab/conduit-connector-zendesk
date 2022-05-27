@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Meroxa, Inc.
+Copyright © 2022 Meroxa, Inc. & Gophers Lab Technologies Pvt. Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,13 +30,13 @@ type TicketPosition struct {
 }
 
 // ToRecordPosition will extract the after_url from the ticket result json
-func (pos *TicketPosition) ToRecordPosition() sdk.Position {
+func (pos *TicketPosition) ToRecordPosition() (sdk.Position, error) {
 	res, err := json.Marshal(pos)
 	if err != nil {
-		return sdk.Position{}
+		return sdk.Position{}, fmt.Errorf("error in parsing the position %w", err)
 	}
 
-	return res
+	return res, nil
 }
 
 // ParsePosition will unmarshal the TicketPosition used to record the next position
@@ -44,7 +44,7 @@ func ParsePosition(p sdk.Position) (TicketPosition, error) {
 	var err error
 
 	if len(p) == 0 {
-		return TicketPosition{}, fmt.Errorf("ticket position is empty :%w", err)
+		return TicketPosition{}, nil
 	}
 
 	var tp TicketPosition

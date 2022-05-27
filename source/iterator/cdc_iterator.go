@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Meroxa, Inc.
+Copyright © 2022 Meroxa, Inc. & Gophers Lab Technologies Pvt. Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ func NewCDCIterator(
 	pollingPeriod time.Duration,
 	tp position.TicketPosition,
 ) (*CDCIterator, error) {
-	tmbWithCtx, ctx := tomb.WithContext(ctx)
+	tmbWithCtx, _ := tomb.WithContext(ctx)
 	lastModified := tp.LastModified
 	if lastModified.IsZero() {
 		lastModified = time.Unix(0, 0)
