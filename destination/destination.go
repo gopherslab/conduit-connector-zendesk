@@ -33,9 +33,9 @@ type Destination struct {
 	cfg          Config        // destination specific config for zendesk
 	buffer       []sdk.Record  // buffer stores the list of zendesk ticket from conduit server
 	ackFuncCache []sdk.AckFunc // returns error to conduit if fails else return nil
-	err          error
-	mux          *sync.Mutex
-	writer       Writer // interface that implements to write tickets to zendesk
+	err          error         // to capture error at each method implementation
+	mux          *sync.Mutex   // maintains state of the pipeline
+	writer       Writer        // interface that implements to write tickets to zendesk
 }
 
 func NewDestination() sdk.Destination {

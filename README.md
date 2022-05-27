@@ -13,6 +13,9 @@ Run `make`.
 
 Run `make test` to run all the tests.
 
+### HTTP Client
+A new HTTP Zendesk client is created in source and destination, as the scope of existing GO client libraries for zendesk is restricted to cursor increment flow for exporting tickets and bulk import operations.
+
 ## Zendesk Source
 
 The Zendesk client connector will connect with Zendesk API through the `url` constructed using subdomain specific to individual organization. Upon successful configuration with `zendesk.userName ` and `zendesk.apiToken` the tickets from the given domain is fetched using cursor based [incremental exports](https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/) provided by zendesk. The cursor is initiated with start_time set to `0` or the time set in `position` of last successfully ack'd record and all subsequent iterations are done using `next_url` returned by the zendesk till the pipeline is paused. On resuming of the pipeline updated_at time of the last fetched ticket is used to restart the cursor.

@@ -31,6 +31,7 @@ const (
 	KeyMaxRetries = "maxRetries"
 
 	// maxBufferSize determines maximum buffer size a config can accept.
+	// value is set to 100, as zendesk bulk import accept max 100 tickets per call
 	// When config with bigger buffer size is parsed, an error is returned.
 	maxBufferSize uint64 = 100
 
