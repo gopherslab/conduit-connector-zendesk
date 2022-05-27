@@ -156,8 +156,13 @@ func (c *Cursor) toRecords(tickets []map[string]interface{}) ([]sdk.Record, erro
 			lastValidModifiedTime = updatedAt
 		}
 
+		toRecordPosition, err := (&position.TicketPosition{LastModified: updatedAt, ID: id}).ToRecordPosition()
+		if err != nil {
+			return nil, err
+		}
+
 		records = append(records, sdk.Record{
-			Position:  (&position.TicketPosition{LastModified: updatedAt, ID: id}).ToRecordPosition(),
+			Position:  toRecordPosition,
 			Metadata:  nil,
 			CreatedAt: createdAt,
 			Key:       sdk.RawData(fmt.Sprintf("%v", id)),

@@ -29,7 +29,7 @@ func TestToRecordPosition(t *testing.T) {
 		ID:           0,
 	}
 	t.Run("Record position valid case", func(t *testing.T) {
-		res := pos.ToRecordPosition()
+		res, _ := pos.ToRecordPosition()
 		assert.NotNil(t, res)
 	})
 }
@@ -47,8 +47,7 @@ func TestParsePosition(t *testing.T) {
 		},
 		{
 			want: TicketPosition{
-				LastModified: time.Now(),
-				ID:           87,
+				ID: 87,
 			},
 			isError: false,
 		},
@@ -58,7 +57,7 @@ func TestParsePosition(t *testing.T) {
 		},
 		{
 			want:    TicketPosition{},
-			isError: true,
+			isError: false,
 		},
 	}
 	for _, tt := range tests {
