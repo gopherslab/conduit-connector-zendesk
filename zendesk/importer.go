@@ -28,6 +28,8 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
+const RetryAfter = 93
+
 type CreateManyRequest struct {
 	Tickets []Ticket `json:"tickets"`
 }
@@ -93,7 +95,6 @@ type BulkImporter struct {
 // NewBulkImporter initialize bulk importer to write bulk tickets to zendesk
 func NewBulkImporter(userName, apiToken, domain string, maxRetries uint64) *BulkImporter {
 	return &BulkImporter{
-		//url:        fmt.Sprintf("https://%s.zendesk.com/api/v2/imports/tickets/create_many", domain),
 		client:     newHTTPClient(),
 		userName:   userName,
 		apiToken:   apiToken,
@@ -125,7 +126,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 
 	resp, err := b.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("unable to fetch response from zendesk server %w", err)
+		return fmt.Errorf("got error response when writing records to zendesk %w", err)
 	}
 
 	defer resp.Body.Close()
@@ -134,7 +135,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
 		retryValue, err := strconv.ParseInt(resp.Header.Get("Retry-After"), 10, 64)
 		if err != nil {
-			return fmt.Errorf("unable to get retry value: %w", err)
+			retryValue = RetryAfter
 		}
 
 		sdk.Logger(ctx).Trace().Int64("Retry-After", retryValue).Msg("rate limit exceeded, will retry after `Retry-After` duration")
@@ -157,7 +158,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 	b.retryCount = 0
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("non 200 status code received(%v)", resp.StatusCode)
+		return fmt.Errorf("non 200 status code received(%v)", resp.Body)
 	}
 
 	return nil

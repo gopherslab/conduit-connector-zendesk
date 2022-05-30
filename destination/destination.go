@@ -18,6 +18,7 @@ package destination
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -33,13 +34,15 @@ type Destination struct {
 	cfg          Config        // destination specific config for zendesk
 	buffer       []sdk.Record  // buffer stores the list of zendesk ticket from conduit server
 	ackFuncCache []sdk.AckFunc // returns error to conduit if fails else return nil
-	err          error         // to capture error at each method implementation
+	err          error         // to capture write error
 	mux          *sync.Mutex   // maintains state of the pipeline
 	writer       Writer        // interface that implements to write tickets to zendesk
 }
 
 func NewDestination() sdk.Destination {
-	return &Destination{}
+	return &Destination{
+		mux: &sync.Mutex{},
+	}
 }
 
 // Configure parses and initializes the config.
@@ -55,7 +58,6 @@ func (d *Destination) Configure(ctx context.Context, cfg map[string]string) erro
 
 // Open http client
 func (d *Destination) Open(ctx context.Context) error {
-	d.mux = &sync.Mutex{}
 	d.buffer = make([]sdk.Record, 0, d.cfg.BufferSize)
 	d.ackFuncCache = make([]sdk.AckFunc, 0, d.cfg.BufferSize)
 	d.writer = zendesk.NewBulkImporter(d.cfg.UserName, d.cfg.APIToken, d.cfg.Domain, d.cfg.MaxRetries)
@@ -68,6 +70,7 @@ func (d *Destination) Open(ctx context.Context) error {
 // records in it. The buffer size can be configured using `bufferSize` config.
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
 	if len(r.Payload.Bytes()) == 0 {
+		d.err = fmt.Errorf("no records from server to write %w", d.err)
 		return d.err
 	}
 
@@ -91,6 +94,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 
 	err := d.writer.Write(ctx, bufferedRecords)
 	if err != nil {
+		d.err = err
 		return err
 	}
 
@@ -105,7 +109,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 	return nil
 }
 
-// Teardown gracefully disconnects the client
+// Teardown will flush all the records from buffer to zendesk and shutdown the client
 func (d *Destination) Teardown(ctx context.Context) error {
 	defer func() {
 		d.writer = nil
