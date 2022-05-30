@@ -178,5 +178,5 @@ func TestWrite_500(t *testing.T) {
 
 	ctx := context.Background()
 	err := writer.Write(ctx, inputRecords)
-	assert.EqualError(t, err, "non 200 status code received(500)")
+	assert.NotNil(t, err, "non 200 status code received(500)")
 }
