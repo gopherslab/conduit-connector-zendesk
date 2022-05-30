@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Meroxa, Inc.
+Copyright © 2022 Meroxa, Inc. & Gophers Lab Technologies Pvt. Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@ package main
 
 import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	zendesk "github.com/conduitio/conduit-connector-zendesk"
+	"github.com/conduitio/conduit-connector-zendesk/source"
 )
 
 func main() {
 	sdk.Serve(sdk.Connector{
-		NewSpecification: nil,
-		NewSource:        nil,
+		NewSpecification: zendesk.Specification,
+		NewSource:        source.NewSource,
 		NewDestination:   nil,
 	})
 }
