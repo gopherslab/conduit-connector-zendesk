@@ -19,6 +19,7 @@ package iterator
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -39,7 +40,8 @@ type CDCIterator struct {
 	ticker           *time.Ticker      // records time interval for next iteration
 	caches           chan []sdk.Record // cache to store array of tickets
 	buffer           chan sdk.Record   // buffer to store individual ticket object
-	cursor           *zendesk.Cursor
+	cursor           ZendeskCursor
+	mux              *sync.Mutex // mux to avoid race condition while setting custom cursor
 }
 
 // NewCDCIterator will initialize CDCIterator parameters and also initialize goroutine to fetch records from server
@@ -48,19 +50,27 @@ func NewCDCIterator(
 	username, apiToken, domain string, // config params
 	pollingPeriod time.Duration,
 	tp position.TicketPosition,
+	cursors ...ZendeskCursor,
 ) (*CDCIterator, error) {
 	tmbWithCtx, _ := tomb.WithContext(ctx)
 	lastModified := tp.LastModified
 	if lastModified.IsZero() {
 		lastModified = time.Unix(0, 0)
 	}
+
+	var cursor ZendeskCursor = zendesk.NewCursor(username, apiToken, domain, lastModified)
+	if len(cursors) > 0 {
+		cursor = cursors[0]
+	}
+
 	cdc := &CDCIterator{
 		tomb:             tmbWithCtx,
 		caches:           make(chan []sdk.Record, 1),
 		buffer:           make(chan sdk.Record, 1),
 		ticker:           time.NewTicker(pollingPeriod),
 		lastModifiedTime: lastModified,
-		cursor:           zendesk.NewCursor(username, apiToken, domain, lastModified),
+		cursor:           cursor,
+		mux:              &sync.Mutex{},
 	}
 
 	cdc.tomb.Go(cdc.startCDC(ctx))
@@ -95,7 +105,9 @@ func (c *CDCIterator) startCDC(ctx context.Context) func() error {
 			case <-c.tomb.Dying():
 				return c.tomb.Err()
 			case <-c.ticker.C:
+				c.mux.Lock()
 				records, err := c.cursor.FetchRecords(ctx)
+				c.mux.Unlock() // avoid defer, to stop locking the cursor for long duration, while it is not being used
 				if err != nil {
 					return err
 				}
