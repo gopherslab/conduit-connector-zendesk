@@ -70,7 +70,7 @@ func (d *Destination) Open(ctx context.Context) error {
 // records in it. The buffer size can be configured using `bufferSize` config.
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
 	if len(r.Payload.Bytes()) == 0 {
-		d.err = fmt.Errorf("no records from server to write %w", d.err)
+		d.err = fmt.Errorf("no records from server to write")
 		return d.err
 	}
 

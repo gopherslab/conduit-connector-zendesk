@@ -32,25 +32,25 @@ func TestNewCDCIterator(t *testing.T) {
 	tests := []struct {
 		name          string
 		Domain        string
-		UserName      string
-		APIToken      string
-		PollingPeriod time.Duration
+		userName      string
+		apiToken      string
+		pollingPeriod time.Duration
 		tp            position.TicketPosition
 		isError       bool
 	}{
 		{
 			name:          "NewCDCIterator with lastModifiedTime=0",
 			Domain:        "testlab",
-			UserName:      "test@testlab.com",
-			APIToken:      "gkdsaj)({jgo43646435#$!ga",
-			PollingPeriod: time.Millisecond,
+			userName:      "test@testlab.com",
+			apiToken:      "gkdsaj)({jgo43646435#$!ga",
+			pollingPeriod: time.Millisecond,
 			tp:            position.TicketPosition{LastModified: time.Time{}},
 		}, {
 			name:          "NewCDCIterator with lastModifiedTime=2022-01-02T15:04:05Z",
 			Domain:        "testlab",
-			UserName:      "test@testlab.com",
-			APIToken:      "gkdsaj)({jgo43646435#$!ga",
-			PollingPeriod: time.Millisecond,
+			userName:      "test@testlab.com",
+			apiToken:      "gkdsaj)({jgo43646435#$!ga",
+			pollingPeriod: time.Millisecond,
 			tp: position.TicketPosition{
 				LastModified: time.Date(2022, 01, 02,
 					15, 04, 05, 0, time.UTC),
@@ -59,7 +59,7 @@ func TestNewCDCIterator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := NewCDCIterator(context.Background(), tt.UserName, tt.APIToken, tt.Domain, tt.PollingPeriod, tt.tp)
+			res, err := NewCDCIterator(context.Background(), tt.userName, tt.apiToken, tt.Domain, tt.pollingPeriod, tt.tp)
 			if tt.isError {
 				assert.NotNil(t, err)
 			} else {

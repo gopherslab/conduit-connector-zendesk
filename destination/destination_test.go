@@ -19,6 +19,7 @@ package destination
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -103,7 +104,7 @@ func TestWriteAsync(t *testing.T) {
 			record: sdk.Record{
 				Payload: sdk.RawData([]byte(``)),
 			},
-			err: nil,
+			err: fmt.Errorf("no records from server to write"),
 		},
 		{
 			name: "valid case",
