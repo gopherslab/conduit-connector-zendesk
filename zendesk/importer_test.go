@@ -150,7 +150,7 @@ func TestWrite_500(t *testing.T) {
 		t:          t,
 		url:        &url.URL{Host: "", Path: "/api/v2/imports/tickets/create_many"},
 		statusCode: 500,
-		resp:       []byte(``),
+		resp:       []byte(`some_dummy_error`),
 		username:   "dummy_user",
 		apiToken:   "dummy_token",
 		header:     header,
@@ -178,5 +178,5 @@ func TestWrite_500(t *testing.T) {
 
 	ctx := context.Background()
 	err := writer.Write(ctx, inputRecords)
-	assert.NotNil(t, err, "non 200 status code received(500)")
+	assert.EqualError(t, err, "non 200 status code(500) received(some_dummy_error)")
 }

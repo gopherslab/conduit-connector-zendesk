@@ -19,7 +19,6 @@ package destination
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -32,17 +31,15 @@ import (
 
 func TestConfigure(t *testing.T) {
 	invalidCfg := map[string]string{
-		"zendesk.domain":   "test.lab",
-		"zendesk.userName": "",
-		"zendesk.apiToken": "ajgrmrop&90002p$@7",
-		"pollingPeriod":    "6s",
+		config.KeyDomain:   "test.lab",
+		config.KeyUserName: "",
+		config.KeyAPIToken: "ajgrmrop&90002p$@7",
 	}
 
 	validConfig := map[string]string{
-		"zendesk.domain":   "testlab",
-		"zendesk.userName": "test",
-		"zendesk.apiToken": "ajgrmrop&90002p$@7",
-		"pollingPeriod":    "6s",
+		config.KeyDomain:   "testlab",
+		config.KeyUserName: "test",
+		config.KeyAPIToken: "ajgrmrop&90002p$@7",
 	}
 
 	type field struct {
@@ -101,15 +98,24 @@ func TestWriteAsync(t *testing.T) {
 	}{
 		{
 			name: "write empty record",
-			record: sdk.Record{
-				Payload: sdk.RawData([]byte(``)),
+			dest: Destination{
+				mux: &sync.Mutex{},
+				cfg: Config{
+					BufferSize: 2,
+				},
+				buffer:       make([]sdk.Record, 0),
+				ackFuncCache: make([]sdk.AckFunc, 0),
 			},
-			err: fmt.Errorf("no records from server to write"),
+			record: sdk.Record{
+				Key:     sdk.RawData(`dummy_key`),
+				Payload: sdk.RawData(``),
+			},
+			err: nil,
 		},
 		{
 			name: "valid case",
 			record: sdk.Record{
-				Payload: sdk.RawData([]byte(`"dummy_data":"12345"`)),
+				Payload: sdk.RawData(`"dummy_data":"12345"`),
 			},
 			dest: Destination{
 				mux: &sync.Mutex{},
@@ -123,7 +129,7 @@ func TestWriteAsync(t *testing.T) {
 		{
 			name: "write invalid case with flush error",
 			record: sdk.Record{
-				Payload: sdk.RawData([]byte(`"dummy_data":"12345"`)),
+				Payload: sdk.RawData(`"dummy_data":"12345"`),
 			},
 			dest: Destination{
 				mux: &sync.Mutex{},

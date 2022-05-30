@@ -18,7 +18,6 @@ package destination
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -34,7 +33,7 @@ type Destination struct {
 	cfg          Config        // destination specific config for zendesk
 	buffer       []sdk.Record  // buffer stores the list of zendesk ticket from conduit server
 	ackFuncCache []sdk.AckFunc // returns error to conduit if fails else return nil
-	err          error         // to capture write error
+	err          error         // to capture the last write error
 	mux          *sync.Mutex   // maintains state of the pipeline
 	writer       Writer        // interface that implements to write tickets to zendesk
 }
@@ -69,8 +68,10 @@ func (d *Destination) Open(ctx context.Context) error {
 // buffer and doesn't actually perform any write until the buffer has enough
 // records in it. The buffer size can be configured using `bufferSize` config.
 func (d *Destination) WriteAsync(ctx context.Context, r sdk.Record, ackFunc sdk.AckFunc) error {
-	if len(r.Payload.Bytes()) == 0 {
-		d.err = fmt.Errorf("no records from server to write")
+	// If either Destination or Writer have encountered an error, there's no point in
+	// accepting more records. We better signal the error up the stack and force
+	// the server to maybe re-instantiate plugin or do something else about it.
+	if d.err != nil {
 		return d.err
 	}
 

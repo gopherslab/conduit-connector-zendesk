@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -158,7 +159,9 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 	b.retryCount = 0
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("non 200 status code received(%v)", resp.Body)
+		// no use checking the error, if it errors, we will just have empty body message in error
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("non 200 status code(%d) received(%v)", resp.StatusCode, string(bodyBytes))
 	}
 
 	return nil
