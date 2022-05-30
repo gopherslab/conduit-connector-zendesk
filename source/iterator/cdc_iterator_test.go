@@ -18,21 +18,22 @@ package iterator
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-connector-zendesk/source/iterator/mocks"
 	"github.com/conduitio/conduit-connector-zendesk/source/position"
+
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/tomb.v2"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestNewCDCIterator(t *testing.T) {
 	tests := []struct {
 		name          string
-		Domain        string
-		userName      string
+		domain        string
+		username      string
 		apiToken      string
 		pollingPeriod time.Duration
 		tp            position.TicketPosition
@@ -40,15 +41,15 @@ func TestNewCDCIterator(t *testing.T) {
 	}{
 		{
 			name:          "NewCDCIterator with lastModifiedTime=0",
-			Domain:        "testlab",
-			userName:      "test@testlab.com",
+			domain:        "testlab",
+			username:      "test@testlab.com",
 			apiToken:      "gkdsaj)({jgo43646435#$!ga",
 			pollingPeriod: time.Millisecond,
 			tp:            position.TicketPosition{LastModified: time.Time{}},
 		}, {
 			name:          "NewCDCIterator with lastModifiedTime=2022-01-02T15:04:05Z",
-			Domain:        "testlab",
-			userName:      "test@testlab.com",
+			domain:        "testlab",
+			username:      "test@testlab.com",
 			apiToken:      "gkdsaj)({jgo43646435#$!ga",
 			pollingPeriod: time.Millisecond,
 			tp: position.TicketPosition{
@@ -59,7 +60,7 @@ func TestNewCDCIterator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := NewCDCIterator(context.Background(), tt.userName, tt.apiToken, tt.Domain, tt.pollingPeriod, tt.tp)
+			res, err := NewCDCIterator(context.Background(), tt.username, tt.apiToken, tt.domain, tt.pollingPeriod, tt.tp)
 			if tt.isError {
 				assert.NotNil(t, err)
 			} else {
@@ -80,43 +81,40 @@ func TestNewCDCIterator(t *testing.T) {
 
 func TestFlush(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	tmbWithCtx, _ := tomb.WithContext(ctx)
-	cdc := &CDCIterator{
-		buffer: make(chan sdk.Record, 1),
-		caches: make(chan []sdk.Record, 1),
-		tomb:   tmbWithCtx,
-	}
-	randomErr := errors.New("random error")
-	cdc.tomb.Go(cdc.flush)
+	defer cancel()
 
-	in := sdk.Record{Position: []byte("some_position")}
-	cdc.caches <- []sdk.Record{in}
-	for {
-		select {
-		case <-cdc.tomb.Dying():
-			assert.EqualError(t, cdc.tomb.Err(), randomErr.Error())
-			cancel()
-			return
-		case out := <-cdc.buffer:
-			assert.Equal(t, in, out)
-			cdc.tomb.Kill(randomErr)
-		}
-	}
+	dummyPosition, err := (&position.TicketPosition{LastModified: time.Now(), ID: 1234}).ToRecordPosition()
+	assert.NoError(t, err)
+	in := sdk.Record{Position: dummyPosition}
+
+	mockCursor := new(mocks.ZendeskCursor)
+	mockCursor.On("FetchRecords", mock.Anything).Once().Return([]sdk.Record{in}, nil)
+
+	cdc := newTestCDCIterator(ctx, t, 500*time.Millisecond, mockCursor) // half of timeout time
+
+	out, err := cdc.Next(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, in, out)
+	cdc.Stop()
+	out, err = cdc.Next(ctx)
+	assert.Empty(t, out)
+	assert.EqualError(t, err, "iterator stopped")
 }
 
 func TestNext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	tmbWithCtx, _ := tomb.WithContext(ctx)
-	cdc := &CDCIterator{
-		buffer: make(chan sdk.Record, 1),
-		caches: make(chan []sdk.Record, 1),
-		tomb:   tmbWithCtx,
-	}
-	cdc.tomb.Go(cdc.flush)
 
-	in := sdk.Record{Position: []byte("some_position")}
-	cdc.caches <- []sdk.Record{in}
+	dummyPosition, err := (&position.TicketPosition{LastModified: time.Now(), ID: 1234}).ToRecordPosition()
+	assert.NoError(t, err)
+	in := sdk.Record{Position: dummyPosition}
+
+	mockCursor := new(mocks.ZendeskCursor)
+	mockCursor.On("FetchRecords", mock.Anything).Once().Return([]sdk.Record{in}, nil)
+
+	cdc := newTestCDCIterator(ctx, t, 500*time.Millisecond, mockCursor) // half of timeout
+
 	out, err := cdc.Next(ctx)
+	mockCursor.AssertExpectations(t)
 	assert.NoError(t, err)
 	assert.Equal(t, in, out)
 	cancel()
@@ -127,42 +125,69 @@ func TestNext(t *testing.T) {
 
 func TestHasNext(t *testing.T) {
 	tests := []struct {
-		name     string
-		fn       func(c *CDCIterator)
-		response bool
+		name          string
+		fn            func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor)
+		response      bool
+		pollingPeriod time.Duration
 	}{{
 		name: "Has next",
-		fn: func(c *CDCIterator) {
-			c.buffer <- sdk.Record{}
+		fn: func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor) {
+			dummyPosition, err := (&position.TicketPosition{LastModified: time.Now(), ID: 1234}).ToRecordPosition()
+			assert.NoError(t, err)
+			in := sdk.Record{Position: dummyPosition}
+			mc.On("FetchRecords", mock.Anything).Return([]sdk.Record{in}, nil)
 		},
-		response: true,
+		pollingPeriod: time.Millisecond,
+		response:      true,
 	}, {
-		name:     "no record in buffer",
-		fn:       func(c *CDCIterator) {},
-		response: false,
-	}, {
-		name: "record in buffer, tomb dead",
-		fn: func(c *CDCIterator) {
-			c.tomb.Kill(errors.New("random error"))
-			c.buffer <- sdk.Record{}
+		name: "no record in buffer",
+		fn: func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor) {
+			mc.On("FetchRecords", mock.Anything).Return([]sdk.Record{}, nil)
 		},
-		response: true,
+		response:      false,
+		pollingPeriod: time.Millisecond,
+	}, {
+		name: "record in buffer, iterator stopped",
+		fn: func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor) {
+			// directly set record in buffer, to mock this scenario
+			c.buffer <- sdk.Record{}
+			c.Stop()
+		},
+		pollingPeriod: time.Millisecond,
+		response:      true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cdc := &CDCIterator{buffer: make(chan sdk.Record, 1), tomb: &tomb.Tomb{}}
-			tt.fn(cdc)
-			res := cdc.HasNext(context.Background())
-			assert.Equal(t, res, tt.response)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			mockCursor := new(mocks.ZendeskCursor)
+			cdc := newTestCDCIterator(ctx, t, tt.pollingPeriod, mockCursor)
+			tt.fn(t, cdc, mockCursor)
+			select {
+			case <-ctx.Done():
+				t.Error("timed out, did you set polling period longer than 500ms?")
+			case <-time.After(tt.pollingPeriod * 2): // give iterator grace period to fetch some records
+				res := cdc.HasNext(ctx)
+				assert.Equal(t, tt.response, res)
+				mockCursor.AssertExpectations(t)
+			}
 		})
 	}
 }
 
 func TestStreamIterator_Stop(t *testing.T) {
-	cdc := &CDCIterator{
-		tomb:   &tomb.Tomb{},
-		ticker: time.NewTicker(time.Second),
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cdc := newTestCDCIterator(ctx, t, time.Minute)
 	cdc.Stop()
-	assert.False(t, cdc.tomb.Alive())
+	rec, err := cdc.Next(ctx)
+	assert.Empty(t, rec)
+	assert.EqualError(t, err, "iterator stopped")
+}
+
+func newTestCDCIterator(ctx context.Context, t *testing.T, pollingPeriod time.Duration, cursors ...ZendeskCursor) *CDCIterator {
+	t.Helper()
+	cdc, err := NewCDCIterator(ctx, "", "", "", pollingPeriod, position.TicketPosition{}, cursors...)
+	assert.NoError(t, err)
+	return cdc
 }
