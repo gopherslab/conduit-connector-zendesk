@@ -19,6 +19,7 @@ package zendesk
 import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/conduitio/conduit-connector-zendesk/config"
+	"github.com/conduitio/conduit-connector-zendesk/destination"
 	"github.com/conduitio/conduit-connector-zendesk/source"
 )
 
@@ -51,6 +52,32 @@ func Specification() sdk.Specification {
 				Description: "Fetch interval for consecutive iterations",
 			},
 		},
-		DestinationParams: map[string]sdk.Parameter{},
+		DestinationParams: map[string]sdk.Parameter{
+			config.KeyDomain: {
+				Default:     "",
+				Required:    true,
+				Description: "A domain is referred as the organization name to which zendesk is registered",
+			},
+			config.KeyUserName: {
+				Default:     "",
+				Required:    true,
+				Description: "Login to zendesk performed using username",
+			},
+			config.KeyAPIToken: {
+				Default:     "",
+				Required:    true,
+				Description: "password to login",
+			},
+			destination.KeyBufferSize: {
+				Default:     "100",
+				Required:    false,
+				Description: "max tickets to be created in one API call",
+			},
+			destination.KeyMaxRetries: {
+				Default:     "3",
+				Required:    false,
+				Description: "max API retries, before returning an error",
+			},
+		},
 	}
 }

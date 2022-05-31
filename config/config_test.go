@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,7 @@ func TestParse(t *testing.T) {
 		config  map[string]string
 		want    Config
 		isError bool
+		err     error
 	}{
 		{
 			name: "Login with all authentication parameters",
@@ -42,6 +44,7 @@ func TestParse(t *testing.T) {
 				APIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			isError: false,
+			err:     nil,
 		},
 		{
 			name: "Login with all authentication parameters with default fetch interval",
@@ -56,6 +59,7 @@ func TestParse(t *testing.T) {
 				APIToken: "gkdsaj)({jgo43646435#$!ga",
 			},
 			isError: false,
+			err:     nil,
 		},
 		{
 			name: "Login with without domain",
@@ -65,6 +69,7 @@ func TestParse(t *testing.T) {
 			},
 			want:    Config{},
 			isError: true,
+			err:     fmt.Errorf("\"zendesk.domain\" config value must be set"),
 		},
 		{
 			name: "Login with without username",
@@ -74,6 +79,7 @@ func TestParse(t *testing.T) {
 			},
 			want:    Config{},
 			isError: true,
+			err:     fmt.Errorf("\"zendesk.userName\" config value must be set"),
 		},
 		{
 			name: "Login without domain and username",
@@ -82,6 +88,7 @@ func TestParse(t *testing.T) {
 			},
 			want:    Config{},
 			isError: true,
+			err:     fmt.Errorf("\"zendesk.domain\" config value must be set"),
 		},
 		{
 			name: "Login without APIToken",
@@ -91,12 +98,14 @@ func TestParse(t *testing.T) {
 			},
 			want:    Config{},
 			isError: true,
+			err:     fmt.Errorf("\"zendesk.apiToken\" config value must be set"),
 		},
 		{
 			name:    "Login without domain, username and APIToken",
 			config:  map[string]string{},
 			want:    Config{},
 			isError: true,
+			err:     fmt.Errorf("\"zendesk.domain\" config value must be set"),
 		},
 	}
 
@@ -105,6 +114,7 @@ func TestParse(t *testing.T) {
 			res, err := Parse(tt.config)
 			if tt.isError {
 				assert.NotNil(t, err)
+				assert.EqualError(t, err, tt.err.Error())
 			} else {
 				assert.NotNil(t, res)
 				assert.Equal(t, res, tt.want)

@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -117,6 +118,7 @@ type testHandler struct {
 	t          *testing.T
 	url        *url.URL
 	statusCode int
+	wantBody   string
 	header     http.Header
 	resp       []byte
 	username   string
@@ -126,6 +128,13 @@ type testHandler struct {
 func (t *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	assert.Equal(t.t, t.url.Path, r.URL.Path)
 	assert.Equal(t.t, t.url.RawQuery, r.URL.RawQuery)
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	assert.NoError(t.t, err)
+
+	if len(t.wantBody) > 0 {
+		assert.Equal(t.t, t.wantBody, string(bodyBytes))
+	}
 
 	assert.Equal(t.t, "Basic "+base64.StdEncoding.EncodeToString([]byte(t.username+"/token:"+t.apiToken)), r.Header.Get("Authorization"))
 	for key, val := range t.header {

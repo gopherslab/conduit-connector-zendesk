@@ -49,9 +49,7 @@ type response struct {
 
 func NewCursor(userName, apiToken, domain string, startTime time.Time) *Cursor {
 	return &Cursor{
-		client: &http.Client{
-			Timeout: 5 * time.Second, // add timeout to ensure the Request doesn't get stuck
-		},
+		client:           newHTTPClient(),
 		userName:         userName,
 		apiToken:         apiToken,
 		baseURL:          fmt.Sprintf("https://%s.zendesk.com", domain),
@@ -175,4 +173,10 @@ func (c *Cursor) toRecords(tickets []map[string]interface{}) ([]sdk.Record, erro
 func basicAuth(username, apiToken string) string {
 	auth := username + "/token:" + apiToken
 	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 5 * time.Second, // add timeout to ensure the Request doesn't get stuck
+	}
 }
