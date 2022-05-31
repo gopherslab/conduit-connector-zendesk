@@ -60,7 +60,6 @@ func (d *Destination) Open(ctx context.Context) error {
 	d.buffer = make([]sdk.Record, 0, d.cfg.BufferSize)
 	d.ackFuncCache = make([]sdk.AckFunc, 0, d.cfg.BufferSize)
 	d.writer = zendesk.NewBulkImporter(d.cfg.UserName, d.cfg.APIToken, d.cfg.Domain, d.cfg.MaxRetries)
-
 	return nil
 }
 
@@ -110,7 +109,7 @@ func (d *Destination) Flush(ctx context.Context) error {
 	return nil
 }
 
-// Teardown will flush all the records from buffer to zendesk and shutdown the client
+// Teardown will flush all the records from buffer to zendesk and set the writer to nil
 func (d *Destination) Teardown(ctx context.Context) error {
 	defer func() {
 		d.writer = nil

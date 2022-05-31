@@ -70,11 +70,13 @@ func TestNewWriter(t *testing.T) {
 	}
 }
 
-func TestWrite(t *testing.T) {
+func TestWrite_RawDataPayload(t *testing.T) {
+	ticketPayload := `{"description":"Some dummy description","priority":"normal","subject":"Sample ticket:Meet the ticket","tags":["sample","support","zendesk"],"type":"incident"}`
 	th := &testHandler{
 		t:          t,
 		url:        &url.URL{Path: "/api/v2/imports/tickets/create_many"},
 		statusCode: 200,
+		wantBody:   fmt.Sprintf(`{"tickets":[%s]}`, ticketPayload),
 		resp:       []byte(`{"job_status": {"id": "3179087242cac73b72a59df1f1dcf3df","url": "https://testlab.zendesk.com/api/v2/job_statuses/3179087242cac73b72a59df1f1dcf3df.json","total": null,"progress": null,"status": "queued","message": null,"results": null}`),
 		username:   "dummy_user",
 		apiToken:   "dummy_token",
@@ -88,15 +90,44 @@ func TestWrite(t *testing.T) {
 	}
 
 	var inputRecords []sdk.Record
-	inputBytes := []byte(`{
-	"description": "Some dummy description",
-	"priority": "normal",
-	"subject": "Sample ticket: Meet the ticket",
-	"tags": ["sample", "support", "zendesk"],
-	"type": "incident"
-}`)
 	inputRecord := sdk.Record{
-		Payload: sdk.RawData(inputBytes),
+		Payload: sdk.RawData(ticketPayload),
+	}
+	inputRecords = append(inputRecords, inputRecord)
+
+	ctx := context.Background()
+	err := writer.Write(ctx, inputRecords)
+	assert.NoError(t, err)
+}
+
+func TestWrite_StructuredDataPayload(t *testing.T) {
+	ticketPayload := `{"description":"Some dummy description","priority":"normal","subject":"Sample ticket: Meet the ticket","tags":["sample","support","zendesk"],"type":"incident"}`
+	th := &testHandler{
+		t:          t,
+		url:        &url.URL{Path: "/api/v2/imports/tickets/create_many"},
+		statusCode: 200,
+		wantBody:   fmt.Sprintf(`{"tickets":[%s]}`, ticketPayload),
+		resp:       []byte(`{"job_status": {"id": "3179087242cac73b72a59df1f1dcf3df","url": "https://testlab.zendesk.com/api/v2/job_statuses/3179087242cac73b72a59df1f1dcf3df.json","total": null,"progress": null,"status": "queued","message": null,"results": null}`),
+		username:   "dummy_user",
+		apiToken:   "dummy_token",
+	}
+	testServer := httptest.NewServer(th)
+	writer := &BulkImporter{
+		baseURL:  testServer.URL,
+		client:   &http.Client{},
+		userName: th.username,
+		apiToken: th.apiToken,
+	}
+
+	var inputRecords []sdk.Record
+	inputRecord := sdk.Record{
+		Payload: sdk.StructuredData{
+			"description": "Some dummy description",
+			"priority":    "normal",
+			"subject":     "Sample ticket: Meet the ticket",
+			"tags":        []string{"sample", "support", "zendesk"},
+			"type":        "incident",
+		},
 	}
 	inputRecords = append(inputRecords, inputRecord)
 

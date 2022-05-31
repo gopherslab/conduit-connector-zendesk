@@ -29,59 +29,10 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-const RetryAfter = 93
+const defaultRetryAfter = 93
 
 type CreateManyRequest struct {
-	Tickets []Ticket `json:"tickets"`
-}
-
-// Ticket is the DS representing the zendesk ticket.
-type Ticket struct {
-	ID                  int           `json:"id"`
-	ExternalID          interface{}   `json:"external_id"`
-	Via                 Via           `json:"via"`
-	CreatedAt           time.Time     `json:"created_at"`
-	UpdatedAt           time.Time     `json:"updated_at"`
-	Type                interface{}   `json:"type"`
-	Subject             string        `json:"subject"`
-	RawSubject          string        `json:"raw_subject"`
-	Description         string        `json:"description"`
-	Priority            interface{}   `json:"priority"`
-	Status              string        `json:"status"`
-	Recipient           interface{}   `json:"recipient"`
-	RequesterID         int64         `json:"requester_id"`
-	SubmitterID         int64         `json:"submitter_id"`
-	AssigneeID          int64         `json:"assignee_id"`
-	OrganizationID      int64         `json:"organization_id"`
-	CollaboratorIds     []interface{} `json:"collaborator_ids"`
-	FollowerIds         []interface{} `json:"follower_ids"`
-	EmailCcIds          []interface{} `json:"email_cc_ids"`
-	ForumTopicID        interface{}   `json:"forum_topic_id"`
-	ProblemID           interface{}   `json:"problem_id"`
-	HasIncidents        bool          `json:"has_incidents"`
-	IsPublic            bool          `json:"is_public"`
-	DueAt               interface{}   `json:"due_at"`
-	Tags                []interface{} `json:"tags"`
-	CustomFields        []interface{} `json:"custom_fields"`
-	SatisfactionRating  interface{}   `json:"satisfaction_rating"`
-	SharingAgreementIds []interface{} `json:"sharing_agreement_ids"`
-	Fields              []interface{} `json:"fields"`
-	FollowupIds         []interface{} `json:"followup_ids"`
-	TicketFormID        int64         `json:"ticket_form_id"`
-	AllowChannelback    bool          `json:"allow_channelback"`
-	AllowAttachments    bool          `json:"allow_attachments"`
-	GeneratedTimestamp  int           `json:"generated_timestamp"`
-}
-
-type Via struct {
-	Channel string `json:"channel"`
-	Source  Source `json:"source"`
-}
-
-type Source struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
-	Rel  interface{} `json:"rel"`
+	Tickets []map[string]interface{} `json:"tickets"`
 }
 
 type BulkImporter struct {
@@ -136,7 +87,7 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 		// NOTE: https://developer.zendesk.com/documentation/ticketing/using-the-zendesk-api/best-practices-for-avoiding-rate-limiting/#catching-errors-caused-by-rate-limiting
 		retryValue, err := strconv.ParseInt(resp.Header.Get("Retry-After"), 10, 64)
 		if err != nil {
-			retryValue = RetryAfter
+			retryValue = defaultRetryAfter
 		}
 
 		sdk.Logger(ctx).Trace().Int64("Retry-After", retryValue).Msg("rate limit exceeded, will retry after `Retry-After` duration")
@@ -167,25 +118,25 @@ func (b *BulkImporter) Write(ctx context.Context, records []sdk.Record) error {
 	return nil
 }
 
-// parseRecords unmarshal the payload data from records to Ticket struct
+// parseRecords unmarshal the payload data from records to map[string]interface{}
 // and returns a marshalled CreateManyRequest, to be used to write multiple tickets to zendesk
 func parseRecords(records []sdk.Record) ([]byte, error) {
 	output := CreateManyRequest{
-		Tickets: make([]Ticket, 0, len(records)),
+		Tickets: make([]map[string]interface{}, 0, len(records)),
 	}
 
 	for _, record := range records {
-		var ticket Ticket
+		var ticket map[string]interface{}
 		err := json.Unmarshal(record.Payload.Bytes(), &ticket)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling the payload into ticket type: %w", err)
+			return nil, fmt.Errorf("error unmarshaling the payload into map: %w", err)
 		}
 		output.Tickets = append(output.Tickets, ticket)
 	}
 
 	m, err := json.Marshal(output)
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling the ticket list: %w", err)
+		return nil, fmt.Errorf("error marshaling the create tickets request: %w", err)
 	}
 	return m, nil
 }

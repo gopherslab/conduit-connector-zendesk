@@ -83,9 +83,20 @@ We use this duration to skip hitting the zendesk APIs repeatedly.
 
 
 ## Destination Connector
-The destination connector receives the records from the conduit as individual record object and store it to the buffer as an array of records. Once the maxBufferSize is reached it will push the tickets to zendesk using [bulk import api](https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import). Configuration for zendesk destination api includes `zendesk.domain`, `zendesk.userName`,`zendesk.apiToken`. Once the zendesk client is initialized, it will wait for the buffer to be filled, before writing the data to zendesk destination account.
-Buffer accepts raw data from conduit and mapped it to zendesk tickets that will write it in the 
-destination.
+The destination connector receives the records from the conduit as individual record object and store it to the buffer as an array of records. 
+Once the maxBufferSize is reached it will push the tickets to zendesk using [bulk import api](https://developer.zendesk.com/api-reference/ticketing/tickets/ticket_import/#ticket-bulk-import). 
+Configuration for zendesk destination api includes `zendesk.domain`, `zendesk.userName`,`zendesk.apiToken`. Once the zendesk client is initialized, it will wait for the buffer to be filled, before writing the data to zendesk destination account.
+Buffer converts the payload bytes of individual record to map[string]interface{} and send the tickets to zendesk with request body structure:
+
+```json
+{
+  "tickets": [
+    "ticket_1_json",
+    "ticket_2_json"
+  ]
+}
+```
+
 In case the rate limit is exceeded, i.e 429 error is received from zendesk, connector blocks for the duration received in `Retry-After` header from zendesk and retries the API call, if the API retry count doesn't exceed the `maxRetries`. If unsuccessful even after the retries, the writer returns an error. 
 
 ### Configuration - Destination
