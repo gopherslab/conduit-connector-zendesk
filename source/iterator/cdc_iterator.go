@@ -137,7 +137,11 @@ func (c *CDCIterator) flush() error {
 			return c.tomb.Err()
 		case cache := <-c.caches:
 			for _, record := range cache {
-				c.buffer <- record
+				select {
+				case <-c.tomb.Dying():
+					return c.tomb.Err()
+				case c.buffer <- record:
+				}
 			}
 		}
 	}
