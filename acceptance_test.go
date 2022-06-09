@@ -16,8 +16,13 @@ limitations under the License.
 package zendesk
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -30,37 +35,62 @@ import (
 	"go.uber.org/goleak"
 )
 
+type response struct {
+	TicketList []map[string]interface{} `json:"tickets"` // stores list of tickets
+}
+
+var (
+	Domain    string
+	UserName  string
+	ApiToken  string
+	client    = http.Client{}
+	ticketIDs []string
+)
+
 func TestAcceptance(t *testing.T) {
-	domain := strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
-	if domain == "" {
+	Domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
+	if Domain == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_DOMAIN")
 		t.FailNow()
 	}
 
-	userName := strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_USER_NAME"))
-	if userName == "" {
+	UserName = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_USER_NAME"))
+	if UserName == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_USER_NAME")
 		t.FailNow()
 	}
 
-	apiToken := strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_API_TOKEN"))
-	if apiToken == "" {
+	ApiToken = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_API_TOKEN"))
+	if ApiToken == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_API_TOKEN")
 		t.FailNow()
 	}
 	sourceConfig := map[string]string{
-		config.KeyDomain:        domain,
-		config.KeyUserName:      userName,
-		config.KeyAPIToken:      apiToken,
+		config.KeyDomain:        Domain,
+		config.KeyUserName:      UserName,
+		config.KeyAPIToken:      ApiToken,
 		source.KeyPollingPeriod: "1s",
 	}
 	destConfig := map[string]string{
-		config.KeyDomain:          domain,
-		config.KeyUserName:        userName,
-		config.KeyAPIToken:        apiToken,
+		config.KeyDomain:          Domain,
+		config.KeyUserName:        UserName,
+		config.KeyAPIToken:        ApiToken,
 		destination.KeyBufferSize: "10",
 	}
 
+	clearTickets := func(t *testing.T) {
+		err := BulkDelete()
+		if err != nil {
+			t.Errorf("error archiving zendesk tickets: %v", err.Error())
+		}
+
+		err = PermanentDelete()
+		if err != nil {
+			t.Errorf("error deleting zendesk tickets: %v", err.Error())
+		}
+	}
+
+	clearTickets(t)
 	sdk.AcceptanceTest(t, AcceptanceTestDriver{
 		rand: rand.New(rand.NewSource(time.Now().UnixNano())), // nolint: gosec // only used for testing
 		ConfigurableAcceptanceTestDriver: sdk.ConfigurableAcceptanceTestDriver{
@@ -82,6 +112,7 @@ func TestAcceptance(t *testing.T) {
 					"TestSource_Read_Success",
 				},
 				AfterTest: func(t *testing.T) {
+					clearTickets(t)
 				},
 			},
 		},
@@ -126,4 +157,91 @@ func (d AcceptanceTestDriver) randString(n int) string {
 		remain--
 	}
 	return sb.String()
+}
+
+func BulkDelete() error {
+	ticketIDs, err := getTickets()
+	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
+	req, err := http.NewRequestWithContext(
+		context.Background(), http.MethodDelete,
+		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", BaseURL, strings.Join(ticketIDs, ",")), nil)
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("got error response when archiving records in zendesk %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func PermanentDelete() error {
+	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodDelete,
+		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", BaseURL, strings.Join(ticketIDs, ",")),
+		nil)
+
+	if err != nil {
+		return fmt.Errorf("unable to delete record in zendesk server %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("got error response when permanently deleting records in zendesk %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func basicAuth(username, apiToken string) string {
+	auth := username + "/token:" + apiToken
+	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func getTickets() ([]string, error) {
+	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
+	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=%d", BaseURL, time.Now().Unix())
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, err
+	}
+
+	ticketList, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var res response
+	err = json.Unmarshal(ticketList, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ticket := range res.TicketList {
+		id := fmt.Sprint(ticket["id"])
+		ticketIDs = append(ticketIDs, id)
+	}
+
+	return ticketIDs, nil
 }
