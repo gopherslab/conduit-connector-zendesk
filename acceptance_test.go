@@ -47,6 +47,8 @@ var (
 	ticketIDs []string
 )
 
+const maxThreshold = 50
+
 func TestAcceptance(t *testing.T) {
 	Domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
 	if Domain == "" {
@@ -156,10 +158,29 @@ func (d AcceptanceTestDriver) randString(n int) string {
 
 func BulkDelete() error {
 	ticketIDs, err := getTickets()
+	if err != nil {
+		return err
+	}
 	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
+	listSize := len(ticketIDs) / 2
+
+	if len(ticketIDs) > maxThreshold {
+		err = callDelete(ticketIDs[:listSize], BaseURL)
+		err = callDelete(ticketIDs[:listSize], BaseURL)
+	} else {
+		err = callDelete(ticketIDs, BaseURL)
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func callDelete(list []string, BaseURL string) error {
 	req, err := http.NewRequestWithContext(
 		context.Background(), http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", BaseURL, strings.Join(ticketIDs, ",")), nil)
+		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", BaseURL, strings.Join(list, ",")), nil)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
 	resp, err := client.Do(req)
@@ -168,19 +189,21 @@ func BulkDelete() error {
 	}
 
 	defer resp.Body.Close()
-	err = PermanentDelete() // permanently deletes zendesk ticket from archives
+	err = PermanentDelete(list) // permanently deletes zendesk ticket from archives
 	if err != nil {
 		return err
 	}
+
 	return nil
+
 }
 
-func PermanentDelete() error {
+func PermanentDelete(list []string) error {
 	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
 	req, err := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", BaseURL, strings.Join(ticketIDs, ",")),
+		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", BaseURL, strings.Join(list, ",")),
 		nil)
 
 	if err != nil {
