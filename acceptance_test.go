@@ -79,14 +79,9 @@ func TestAcceptance(t *testing.T) {
 	}
 
 	clearTickets := func(t *testing.T) {
-		err := BulkDelete()
+		err := BulkDelete() // archive the zendesk tickets - max 100 tickets per page
 		if err != nil {
 			t.Errorf("error archiving zendesk tickets: %v", err.Error())
-		}
-
-		err = PermanentDelete()
-		if err != nil {
-			t.Errorf("error deleting zendesk tickets: %v", err.Error())
 		}
 	}
 
@@ -112,7 +107,7 @@ func TestAcceptance(t *testing.T) {
 					"TestSource_Read_Success",
 				},
 				AfterTest: func(t *testing.T) {
-					clearTickets(t)
+					clearTickets(t) // clear all tickets from zendesk
 				},
 			},
 		},
@@ -173,7 +168,10 @@ func BulkDelete() error {
 	}
 
 	defer resp.Body.Close()
-
+	err = PermanentDelete() // permanently deletes zendesk ticket from archives
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -208,14 +206,12 @@ func basicAuth(username, apiToken string) string {
 
 func getTickets() ([]string, error) {
 	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
-	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=%d", BaseURL, time.Now().Unix())
-
+	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=0", BaseURL)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -242,6 +238,5 @@ func getTickets() ([]string, error) {
 		id := fmt.Sprint(ticket["id"])
 		ticketIDs = append(ticketIDs, id)
 	}
-
 	return ticketIDs, nil
 }
