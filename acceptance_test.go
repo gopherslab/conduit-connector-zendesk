@@ -87,7 +87,6 @@ func TestAcceptance(t *testing.T) {
 		}
 	}
 
-	clearTickets(t)
 	sdk.AcceptanceTest(t, AcceptanceTestDriver{
 		rand: rand.New(rand.NewSource(time.Now().UnixNano())), // nolint: gosec // only used for testing
 		ConfigurableAcceptanceTestDriver: sdk.ConfigurableAcceptanceTestDriver{
@@ -161,15 +160,19 @@ func BulkDelete() error {
 	if err != nil {
 		return err
 	}
+
 	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
 	listSize := len(ticketIDs) / 2
 
-	if len(ticketIDs) > maxThreshold {
-		err = callDelete(ticketIDs[:listSize], BaseURL)
-		err = callDelete(ticketIDs[:listSize], BaseURL)
-	} else {
-		err = callDelete(ticketIDs, BaseURL)
+	if len(ticketIDs) != 0 {
+		if len(ticketIDs) > maxThreshold {
+			err = callDelete(ticketIDs[:listSize], BaseURL)
+			err = callDelete(ticketIDs[listSize:], BaseURL)
+		} else {
+			err = callDelete(ticketIDs, BaseURL)
+		}
 	}
+
 	if err != nil {
 		return err
 	}
@@ -195,7 +198,6 @@ func callDelete(list []string, BaseURL string) error {
 	}
 
 	return nil
-
 }
 
 func PermanentDelete(list []string) error {
@@ -228,12 +230,14 @@ func basicAuth(username, apiToken string) string {
 }
 
 func getTickets() ([]string, error) {
+	ticketIDs = nil
 	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
-	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=0", BaseURL)
+	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=0&exclude_deleted=true", BaseURL)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
 	resp, err := client.Do(req)
 	if err != nil {
@@ -261,5 +265,6 @@ func getTickets() ([]string, error) {
 		id := fmt.Sprint(ticket["id"])
 		ticketIDs = append(ticketIDs, id)
 	}
+
 	return ticketIDs, nil
 }
