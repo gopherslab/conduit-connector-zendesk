@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -32,56 +31,61 @@ import (
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/destination"
 	"github.com/conduitio/conduit-connector-zendesk/source"
+	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
+	"github.com/conduitio/conduit-connector-zendesk/zendesk"
 	"go.uber.org/goleak"
 )
 
 type response struct {
-	TicketList []map[string]interface{} `json:"tickets"` // stores list of tickets
+	TicketList map[string]interface{} `json:"tickets"` // stores list of tickets
 }
 
 var (
-	Domain    string
-	UserName  string
-	ApiToken  string
-	client    = http.Client{}
-	ticketIDs []string
+	domain       string
+	userName     string
+	apiToken     string
+	client       = http.Client{}
+	ticketIDs    []string
+	baseURL      string
+	cursor       iterator.ZendeskCursor
+	lastModified time.Time
 )
 
-const maxThreshold = 50
-
 func TestAcceptance(t *testing.T) {
-	Domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
-	if Domain == "" {
+	domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
+	if domain == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_DOMAIN")
 		t.FailNow()
 	}
 
-	UserName = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_USER_NAME"))
-	if UserName == "" {
+	baseURL = fmt.Sprintf("https://%s.zendesk.com", domain)
+
+	userName = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_USER_NAME"))
+	if userName == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_USER_NAME")
 		t.FailNow()
 	}
 
-	ApiToken = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_API_TOKEN"))
-	if ApiToken == "" {
+	apiToken = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_API_TOKEN"))
+	if apiToken == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_API_TOKEN")
 		t.FailNow()
 	}
 	sourceConfig := map[string]string{
-		config.KeyDomain:        Domain,
-		config.KeyUserName:      UserName,
-		config.KeyAPIToken:      ApiToken,
+		config.KeyDomain:        domain,
+		config.KeyUserName:      userName,
+		config.KeyAPIToken:      apiToken,
 		source.KeyPollingPeriod: "1s",
 	}
 	destConfig := map[string]string{
-		config.KeyDomain:          Domain,
-		config.KeyUserName:        UserName,
-		config.KeyAPIToken:        ApiToken,
+		config.KeyDomain:          domain,
+		config.KeyUserName:        userName,
+		config.KeyAPIToken:        apiToken,
 		destination.KeyBufferSize: "10",
 	}
 
 	clearTickets := func(t *testing.T) {
-		err := BulkDelete() // archive the zendesk tickets - max 100 tickets per page
+		err := bulkDelete() // archive the zendesk tickets - max 100 tickets per page
 		if err != nil {
 			t.Errorf("error archiving zendesk tickets: %v", err.Error())
 		}
@@ -101,6 +105,10 @@ func TestAcceptance(t *testing.T) {
 				BeforeTest: func(t *testing.T) {
 				},
 				GoleakOptions: []goleak.Option{goleak.IgnoreCurrent(), goleak.IgnoreTopFunction("internal/poll.runtime_pollWait")},
+				// tests skipped as the zendesk deletion takes 90 days to complete the delete lifecycle.
+				// As discussed, scope of incremental flow export constraint with use of exclude_delete flag
+				// test account displays the scrubbed tickets
+				// https://support.zendesk.com/hc/en-us/articles/4599509725466-Removal-of-permanently-deleted-Ticket-IDs
 				Skip: []string{
 					"TestDestination_WriteAsync_Success",
 					"TestSource_Open_ResumeAtPositionCDC",
@@ -121,7 +129,7 @@ type AcceptanceTestDriver struct {
 }
 
 func (d AcceptanceTestDriver) GenerateRecord(*testing.T) sdk.Record {
-	payload := fmt.Sprintf(`{"description":"%s","subject":"%s"}`, d.randString(32), d.randString(32))
+	payload := fmt.Sprintf(`{"description":"%s","subject":"%s","raw_subject":"%s"}`, d.randString(32), d.randString(32), d.randString(32))
 	return sdk.Record{
 		Position:  sdk.Position(fmt.Sprintf(`{last_modified_time:%v,id:"%v",}`, time.Now().Add(1*time.Second), 0)),
 		Metadata:  nil,
@@ -155,116 +163,55 @@ func (d AcceptanceTestDriver) randString(n int) string {
 	return sb.String()
 }
 
-func BulkDelete() error {
-	ticketIDs, err := getTickets()
-	if err != nil {
-		return err
+func bulkDelete() error {
+	var res response
+	cursor = zendesk.NewCursor(userName, apiToken, domain, time.Unix(0, 0))
+	// fetching lists of ticket id to delete
+	ticketList, _ := cursor.FetchRecords(context.Background())
+	for _, ticket := range ticketList {
+		err := json.Unmarshal(ticket.Payload.Bytes(), &res.TicketList)
+		if err != nil {
+			return err
+		}
+		id := fmt.Sprint(res.TicketList["id"])
+		ticketIDs = append(ticketIDs, id)
 	}
-
-	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
-	listSize := len(ticketIDs) / 2
 
 	if len(ticketIDs) != 0 {
-		if len(ticketIDs) > maxThreshold {
-			err = callDelete(ticketIDs[:listSize], BaseURL)
-			err = callDelete(ticketIDs[listSize:], BaseURL)
-		} else {
-			err = callDelete(ticketIDs, BaseURL)
-		}
-	}
-
-	if err != nil {
-		return err
+		// uses bulkdelete to archive zendesk tickets, takes comma separated ids
+		callDelete(ticketIDs, baseURL)
 	}
 
 	return nil
 }
 
-func callDelete(list []string, BaseURL string) error {
-	req, err := http.NewRequestWithContext(
+func callDelete(list []string, BaseURL string) {
+	req, _ := http.NewRequestWithContext(
 		context.Background(), http.MethodDelete,
 		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", BaseURL, strings.Join(list, ",")), nil)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("got error response when archiving records in zendesk %w", err)
-	}
-
+	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
+	resp, _ := client.Do(req)
 	defer resp.Body.Close()
-	err = PermanentDelete(list) // permanently deletes zendesk ticket from archives
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// permanently deletes zendesk ticket from ticket archives
+	permanentDelete(list)
 }
 
-func PermanentDelete(list []string) error {
-	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
-	req, err := http.NewRequestWithContext(
+func permanentDelete(list []string) {
+	baseURL := fmt.Sprintf("https://%s.zendesk.com", domain)
+	req, _ := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", BaseURL, strings.Join(list, ",")),
+		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", baseURL, strings.Join(list, ",")),
 		nil)
-
-	if err != nil {
-		return fmt.Errorf("unable to delete record in zendesk server %w", err)
-	}
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
+	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("got error response when permanently deleting records in zendesk %w", err)
-	}
-
+	resp, _ := client.Do(req)
 	defer resp.Body.Close()
-
-	return nil
 }
 
 func basicAuth(username, apiToken string) string {
 	auth := username + "/token:" + apiToken
 	return base64.StdEncoding.EncodeToString([]byte(auth))
-}
-
-func getTickets() ([]string, error) {
-	ticketIDs = nil
-	BaseURL := fmt.Sprintf("https://%s.zendesk.com", Domain)
-	url := fmt.Sprintf("%s/api/v2/incremental/tickets/cursor.json?start_time=0&exclude_deleted=true", BaseURL)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Authorization", "Basic "+basicAuth(UserName, ApiToken))
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, err
-	}
-
-	ticketList, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var res response
-	err = json.Unmarshal(ticketList, &res)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ticket := range res.TicketList {
-		id := fmt.Sprint(ticket["id"])
-		ticketIDs = append(ticketIDs, id)
-	}
-
-	return ticketIDs, nil
 }
