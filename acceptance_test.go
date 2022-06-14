@@ -166,6 +166,7 @@ func (d AcceptanceTestDriver) randString(n int) string {
 func bulkDelete() error {
 	var res response
 	cursor = zendesk.NewCursor(userName, apiToken, domain, time.Unix(0, 0))
+	ticketIDs = nil
 	// fetching lists of ticket id to delete
 	ticketList, _ := cursor.FetchRecords(context.Background())
 	for _, ticket := range ticketList {
@@ -173,32 +174,33 @@ func bulkDelete() error {
 		if err != nil {
 			return err
 		}
-		id := fmt.Sprint(res.TicketList["id"])
-		ticketIDs = append(ticketIDs, id)
+
+		if fmt.Sprint(res.TicketList["status"]) != "deleted" {
+			id := fmt.Sprint(res.TicketList["id"])
+			ticketIDs = append(ticketIDs, id)
+		}
 	}
 
 	if len(ticketIDs) != 0 {
 		// uses bulkdelete to archive zendesk tickets, takes comma separated ids
 		callDelete(ticketIDs, baseURL)
 	}
-
 	return nil
 }
 
-func callDelete(list []string, BaseURL string) {
+func callDelete(list []string, baseURL string) {
 	req, _ := http.NewRequestWithContext(
 		context.Background(), http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", BaseURL, strings.Join(list, ",")), nil)
+		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", baseURL, strings.Join(list, ",")), nil)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
 	resp, _ := client.Do(req)
 	defer resp.Body.Close()
 	// permanently deletes zendesk ticket from ticket archives
-	permanentDelete(list)
+	permanentDelete(list, baseURL)
 }
 
-func permanentDelete(list []string) {
-	baseURL := fmt.Sprintf("https://%s.zendesk.com", domain)
+func permanentDelete(list []string, baseURL string) {
 	req, _ := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodDelete,
@@ -206,7 +208,6 @@ func permanentDelete(list []string) {
 		nil)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
-
 	resp, _ := client.Do(req)
 	defer resp.Body.Close()
 }
