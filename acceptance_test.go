@@ -31,34 +31,33 @@ import (
 	"github.com/conduitio/conduit-connector-zendesk/config"
 	"github.com/conduitio/conduit-connector-zendesk/destination"
 	"github.com/conduitio/conduit-connector-zendesk/source"
-	"github.com/conduitio/conduit-connector-zendesk/source/iterator"
 	"github.com/conduitio/conduit-connector-zendesk/zendesk"
+
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 )
 
-type response struct {
-	TicketList map[string]interface{} `json:"tickets"` // stores list of tickets
+type ticket struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
 }
 
 var (
-	domain       string
-	userName     string
-	apiToken     string
-	client       = http.Client{}
-	ticketIDs    []string
-	baseURL      string
-	cursor       iterator.ZendeskCursor
-	lastModified time.Time
+	domain   string
+	userName string
+	apiToken string
+	baseURL  string
 )
 
 func TestAcceptance(t *testing.T) {
+	os.Setenv("CONDUIT_ZENDESK_DOMAIN", "d3v-meroxasupport")
+	os.Setenv("CONDUIT_ZENDESK_USER_NAME", "hariharan.l@gopherslab.com")
+	os.Setenv("CONDUIT_ZENDESK_API_TOKEN", "Tc4wEkmnnuNu5xaDYtLgncJpJfWI6VoTCp9cyJzg")
 	domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
 	if domain == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_DOMAIN")
 		t.FailNow()
 	}
-
-	baseURL = fmt.Sprintf("https://%s.zendesk.com", domain)
 
 	userName = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_USER_NAME"))
 	if userName == "" {
@@ -71,6 +70,9 @@ func TestAcceptance(t *testing.T) {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_API_TOKEN")
 		t.FailNow()
 	}
+
+	baseURL = fmt.Sprintf("https://%s.zendesk.com", domain)
+
 	sourceConfig := map[string]string{
 		config.KeyDomain:        domain,
 		config.KeyUserName:      userName,
@@ -85,10 +87,7 @@ func TestAcceptance(t *testing.T) {
 	}
 
 	clearTickets := func(t *testing.T) {
-		err := bulkDelete() // archive the zendesk tickets - max 100 tickets per page
-		if err != nil {
-			t.Errorf("error archiving zendesk tickets: %v", err.Error())
-		}
+		assert.NoError(t, deleteTickets(t)) // archive the zendesk tickets - max 100 tickets per page
 	}
 
 	sdk.AcceptanceTest(t, AcceptanceTestDriver{
@@ -104,8 +103,14 @@ func TestAcceptance(t *testing.T) {
 				DestinationConfig: destConfig,
 				BeforeTest: func(t *testing.T) {
 				},
-				GoleakOptions: []goleak.Option{goleak.IgnoreCurrent(), goleak.IgnoreTopFunction("internal/poll.runtime_pollWait")},
+				GoleakOptions: []goleak.Option{
+					goleak.IgnoreCurrent(),
+					goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+					// keep-alive http connection, will be closed automatically in some time
+					goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+				},
 				// tests skipped as the zendesk deletion takes 90 days to complete the delete lifecycle.
+				// Also, Newly written tickets can take upto 2 minutes to be returned by the read API.
 				// As discussed, scope of incremental flow export constraint with use of exclude_delete flag
 				// test account displays the scrubbed tickets
 				// https://support.zendesk.com/hc/en-us/articles/4599509725466-Removal-of-permanently-deleted-Ticket-IDs
@@ -163,53 +168,42 @@ func (d AcceptanceTestDriver) randString(n int) string {
 	return sb.String()
 }
 
-func bulkDelete() error {
-	var res response
-	cursor = zendesk.NewCursor(userName, apiToken, domain, time.Unix(0, 0))
-	ticketIDs = nil
+func deleteTickets(t *testing.T) error {
+	var res ticket
+	cursor := zendesk.NewCursor(userName, apiToken, domain, time.Unix(0, 0))
+	ticketIDs := make([]string, 0)
+
 	// fetching lists of ticket id to delete
-	ticketList, _ := cursor.FetchRecords(context.Background())
-	for _, ticket := range ticketList {
-		err := json.Unmarshal(ticket.Payload.Bytes(), &res.TicketList)
+	records, _ := cursor.FetchRecords(context.Background())
+	for _, record := range records {
+		err := json.Unmarshal(record.Payload.Bytes(), &res)
 		if err != nil {
 			return err
 		}
 
-		if fmt.Sprint(res.TicketList["status"]) != "deleted" {
-			id := fmt.Sprint(res.TicketList["id"])
+		// skip deleting already deleted tickets
+		if res.Status != "deleted" {
+			id := fmt.Sprint(res.ID)
 			ticketIDs = append(ticketIDs, id)
 		}
 	}
 
 	if len(ticketIDs) != 0 {
-		// uses bulkdelete to archive zendesk tickets, takes comma separated ids
-		callDelete(ticketIDs, baseURL)
+		req, err := http.NewRequest(
+			http.MethodDelete,
+			fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", baseURL, strings.Join(ticketIDs, ",")),
+			nil,
+		)
+		assert.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		assert.NoError(t, resp.Body.Close())
+		client.CloseIdleConnections()
 	}
 	return nil
-}
-
-func callDelete(list []string, baseURL string) {
-	req, _ := http.NewRequestWithContext(
-		context.Background(), http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", baseURL, strings.Join(list, ",")), nil)
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
-	resp, _ := client.Do(req)
-	defer resp.Body.Close()
-	// permanently deletes zendesk ticket from ticket archives
-	permanentDelete(list, baseURL)
-}
-
-func permanentDelete(list []string, baseURL string) {
-	req, _ := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodDelete,
-		fmt.Sprintf("%s/api/v2/deleted_tickets/destroy_many?ids=%s", baseURL, strings.Join(list, ",")),
-		nil)
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("Authorization", "Basic "+basicAuth(userName, apiToken))
-	resp, _ := client.Do(req)
-	defer resp.Body.Close()
 }
 
 func basicAuth(username, apiToken string) string {

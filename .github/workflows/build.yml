@@ -18,7 +18,7 @@ jobs:
 
       - name: Test
         env:
-          ZENDESK_USERNAME: ${{ secrets.USERNAME }}
-          ZENDESK_DOMAIN: ${{ secrets.DOMAIN }}
-          ZENDESK_API_TOKEN: ${{ secrets.API_TOKEN }}
+          CONDUIT_ZENDESK_DOMAIN: ${{ secrets.CONDUIT_ZENDESK_DOMAIN }}
+          CONDUIT_ZENDESK_USER_NAME: ${{ secrets.CONDUIT_ZENDESK_USER_NAME }}
+          CONDUIT_ZENDESK_API_TOKEN: ${{ secrets.CONDUIT_ZENDESK_API_TOKEN }}
         run: make test GOTEST_FLAGS="-v -count=1"
