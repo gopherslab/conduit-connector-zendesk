@@ -50,9 +50,6 @@ var (
 )
 
 func TestAcceptance(t *testing.T) {
-	os.Setenv("CONDUIT_ZENDESK_DOMAIN", "d3v-meroxasupport")
-	os.Setenv("CONDUIT_ZENDESK_USER_NAME", "hariharan.l@gopherslab.com")
-	os.Setenv("CONDUIT_ZENDESK_API_TOKEN", "Tc4wEkmnnuNu5xaDYtLgncJpJfWI6VoTCp9cyJzg")
 	domain = strings.TrimSpace(os.Getenv("CONDUIT_ZENDESK_DOMAIN"))
 	if domain == "" {
 		t.Error("credentials not set in env CONDUIT_ZENDESK_DOMAIN")
@@ -189,7 +186,8 @@ func deleteTickets(t *testing.T) error {
 	}
 
 	if len(ticketIDs) != 0 {
-		req, err := http.NewRequest(
+		req, err := http.NewRequestWithContext(
+			context.Background(),
 			http.MethodDelete,
 			fmt.Sprintf("%s/api/v2/tickets/destroy_many?ids=%s", baseURL, strings.Join(ticketIDs, ",")),
 			nil,
