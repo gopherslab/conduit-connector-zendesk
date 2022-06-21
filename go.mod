@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220509181254-2cded239f31f
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.4
 	go.uber.org/goleak v1.1.12
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 )
@@ -25,7 +25,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/zerolog v1.26.1 // indirect
-	github.com/stretchr/objx v0.1.0 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
 	go.buf.build/library/go-grpc/conduitio/conduit-connector-protocol v1.4.1 // indirect
 	golang.org/x/net v0.0.0-20220403103023-749bd193bc2b // indirect
 	golang.org/x/sys v0.0.0-20220405052023-b1e9470b6e64 // indirect
