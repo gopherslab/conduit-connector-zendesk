@@ -132,6 +132,8 @@ func TestHasNext(t *testing.T) {
 	}{{
 		name: "Has next",
 		fn: func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor) {
+			c.mux.Lock()
+			defer c.mux.Unlock()
 			dummyPosition, err := (&position.TicketPosition{LastModified: time.Now(), ID: 1234}).ToRecordPosition()
 			assert.NoError(t, err)
 			in := sdk.Record{Position: dummyPosition}
@@ -142,6 +144,8 @@ func TestHasNext(t *testing.T) {
 	}, {
 		name: "no record in buffer",
 		fn: func(t *testing.T, c *CDCIterator, mc *mocks.ZendeskCursor) {
+			c.mux.Lock()
+			defer c.mux.Unlock()
 			mc.On("FetchRecords", mock.Anything).Return([]sdk.Record{}, nil)
 		},
 		response:      false,
