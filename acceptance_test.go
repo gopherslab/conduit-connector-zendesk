@@ -106,10 +106,25 @@ func TestAcceptance(t *testing.T) {
 					// keep-alive http connection, will be closed automatically in some time
 					goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
 				},
-				// tests skipped as the zendesk deletion takes 90 days to complete the delete lifecycle.
-				// Also, Newly written tickets can take upto 2 minutes to be returned by the read API.
-				// As discussed, scope of incremental flow export constraint with use of exclude_delete flag
-				// test account displays the scrubbed tickets
+
+				// As we are fetching the deleted tickets as well, The Zendesk API may return the deleted tickets for multiple days,
+				// even if we mark them for permanent deletion. If we use time.Sleep to ensure the newly created tickets are returned by the Zendesk API,
+				// we can't be sure if we will only fetch the newly created tickets or if the deleted tickets will also be returned.
+				// (For ex: while creating a PoC for below-mentioned steps, I received a ticket with ID 135, which had already been deleted, was not visible in console.
+				// For reference, ID of latest created tickets were 735+, and we are regularly deleting the tickets after tests, in subsequent test run)
+				// Regarding skipping the snapshot, We will need to add a new config startTime in source connector which can be used to start
+				// fetching the tickets changes after the current time. The process will look something like below:
+				//
+				// - Add startTime config
+				// - Use the startTime config in iterator
+				// - In Acceptance tests, pass current time as startTime
+				// - Write a new ticket to zendesk (to calculate the ID that will be generated for newly generated tickets)
+				// - Wait for 2 minutes to ensure the newly created ticket is propagated before cleaning up the zendesk tickets and starting the acceptance tests.
+				// - Overwrite the 4 skipped tests, and add 2 minutes sleep time between write and read of the tickets. (Currently we have 5 seconds context timeout)
+				// - Before checking for equality of received and expected tickets, parse record position and ticket data to overwrite the time related fields, to ensure they are ignored while comparing tickets.
+				// - After all the tests that write tickets to zendesk, delete all the tickets (wait 2 minutes before calling delete, wait can be skipped for the overwritten tests)
+				//
+				// Maybe we can write these acceptance tests in next phase when we add startTime in the config parameters.
 				// https://support.zendesk.com/hc/en-us/articles/4599509725466-Removal-of-permanently-deleted-Ticket-IDs
 				Skip: []string{
 					"TestDestination_WriteAsync_Success",
